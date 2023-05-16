@@ -1,0 +1,374 @@
+
+
+library(tidyverse)
+library(ggplot2)
+library(Hmisc)
+library(corrplot)
+library(shiny)
+library(dplyr)
+library(purrr)
+library(rstatix)
+library(lattice)
+library(reshape2)
+library(lubridate)
+library(data.table)
+
+
+# # library(ISLR)
+library(ipred)
+# library(caret)
+
+library(tree)
+library(randomForest)
+library(BART)
+library(gbm)
+
+
+
+
+
+### Load the train data 
+
+data=read.csv('/Users/danhuang/Desktop/Desktop/Upwork/Anatea/train.csv')
+
+
+### Exploratory data analysis includes descriptive statistics,
+# data cleaning, data visualization
+
+
+## descriptive statistics
+summary(data)
+
+## check correlation matrix
+## we notice that the Temperature is highly positively 
+# correlated with Dew Temperature
+
+
+corr=cor(data[,c("Count","Hour","Temperature","Humidity",
+                 "Wind","Visibility","Dew","Solar","Rainfall",
+                 "Snowfall")])
+
+corrplot(corr)
+
+### data clean: check missing values in the data 
+### there are no missing values in the dataset 
+describe(data) 
+
+### data clean: check null/NA/Nan, empty string values 
+### there are no null/na/nan values.
+
+is.valid <- function(x) {
+  require(shiny)
+  is.null(need(x, message = FALSE))  
+}
+
+is.valid(data)
+
+### data clean: check duplicates in the dataset
+### there are no duplicates based on the unique identifiers
+
+ind <- duplicated(data[,15])
+data[ind,]
+
+
+## data clean: check outliers 
+### we notice that there are some outliers in Wind, Solar, Rainfall, Snowfall
+### and Count variables
+
+p <- ggplot(melt(data[,3:11]), aes(factor(variable), value)) 
+p + geom_boxplot() + facet_wrap(~variable, scale="free")
+
+boxplot(data$Count, main='Boxplot',xlab='Count')
+
+### now we add categorical variables Seasons, Holiday, Functioning 
+
+Season=data$Seasons
+Count=data$Count
+ggplot(data,aes(y = Count, x = Season,color = Season)) +
+  geom_boxplot()
+
+Holiday=data$Holiday
+
+ggplot(data, (aes(y = Count, x = Holiday,color=Holiday))) +
+  geom_boxplot()
+
+Functions=data$Functioning
+
+ggplot(data, (aes(y = Count, x = Functions,color=Functions))) +
+  geom_boxplot()
+
+## data visualization 
+
+ggplot(data, aes(Seasons, Count,color=Seasons)) +
+  geom_bar(stat = "identity") + 
+  labs(y = "Rented bike counts", x = "Seasons")
+
+ggplot(data, aes(Holiday, Count,color=Holiday)) +
+  geom_bar(stat = "identity") + 
+  labs(y = "Rented bike counts", x = "Holiday")
+
+ggplot(data, aes(Functioning, Count,color=Functioning)) +
+  geom_bar(stat = "identity") + 
+  labs(y = "Rented bike counts", x = "Functioning")
+
+### Drop ID column 
+
+data = subset(data, select = -c(ID))
+
+## convert categorical variables to numeric variables: encode
+
+data['seasons']=as.factor(data[,c('Seasons')])
+data['holiday']=as.factor(data[,c('Holiday')])
+data['function']=as.factor(data[,c('Functioning')])
+
+must_convert<-sapply(data,is.factor)       # logical vector telling if a variable needs to be displayed as numeric
+M2<-sapply(data[,must_convert],unclass)    # data.frame of all categorical variables now displayed as numeric
+data<-cbind(data[,!must_convert],M2) 
+
+### drop original categorical variables: Seasons, Holiday, Functioning
+### Keep encoding varibles
+
+data = subset(data, select = -c(Seasons,Holiday,Functioning))
+
+### Deal with Date
+
+data['Date']=lubridate::dmy(as.factor(data[,c('Date')]))
+
+data['Month']=month(data$Date)
+data['Day']=wday(data$Date)
+
+## Drop Date column 
+
+data = subset(data, select = -c(Date))
+
+### Data visualization based on month, weekday, hour columns 
+
+
+ggplot(data, aes(Month, Count)) +
+  geom_bar(stat = "identity",fill=data$Month) + 
+  labs(y = "Rented bike counts", x = "Month")+
+  scale_x_continuous(label = scales::label_number(accuracy = 1))
+
+
+ggplot(data, aes(Day, Count)) +
+  geom_bar(stat = "identity",fill=data$Day) + 
+  labs(y = "Rented bike counts", x = "Day")+
+  scale_x_continuous(label = scales::label_number(accuracy = 1))
+
+
+ggplot(data, aes(Hour, Count,fill=Hour)) +
+  geom_bar(stat = "identity") + 
+  labs(y = "Rented bike counts", x = "Hour")+
+  scale_x_continuous(label = scales::label_number(accuracy = 1))
+
+
+#### final checkpoint, now we have preprocessed dataset
+
+data_preprocessed=copy(data)
+
+#### Tree, Random Forest, Bagging, Boosting, Bayesian additive regression tree
+
+# ##### standardize the data except categories 
+# 
+# 
+# 
+# data_scaled=data_preprocessed %>% mutate_at(c('Count', "Hour",
+#                                   "Temperature","Humidity","Wind",
+#                                   "Visibility","Dew", "Solar", "Rainfall",
+#                                   "Snowfall", "Month","Day" ), 
+#                                 ~(scale(.) %>% as.vector))
+
+### train test split scaled dataset 
+
+# Set Seed so that same sample can be reproduced in future also
+# Now Selecting 80% of data as sample from total 'n' rows of the data  
+
+set.seed(101) 
+
+sample <- sample.int(n = nrow(data_preprocessed), 
+                     size = floor(0.8*nrow(data_preprocessed)), replace = T)
+train_data= data_preprocessed[sample, ]
+test_data = data_preprocessed[-sample, ]
+
+
+### Regression Tree method
+
+colnames(train_data) <- make.names(colnames(train_data))
+mod1= tree(Count ~ ., data = train_data)
+
+plot(mod1)
+text(mod1, pretty=0)
+
+pred1 = predict(mod1, data.frame(test_data))
+
+mse1=mean((pred1-test_data$Count)^2)
+
+
+# we can use cross-validation to select a good pruning of the tree.
+
+
+set.seed(101)
+mod_cv = cv.tree(mod1)
+plot(mod_cv$size, mod_cv$dev / nrow(train_data), type = "b",
+     xlab = "Tree Size", ylab = "CV-MSE")
+
+
+# The pruned tree is, as expected, smaller and easier to interpret.
+
+mod_prune = prune.tree(mod1, best = 13)
+summary(mod_prune)
+
+plot(mod_prune)
+text(mod_prune, pretty = 0)
+title(main = "Pruned Regression Tree")
+
+
+pred_prune = predict(mod_prune, data.frame(test_data))
+
+mse_prune=mean((pred_prune-test_data$Count)^2)
+
+### Random Forest method
+
+mod2=randomForest(Count ~ ., data = train_data)
+
+oob.err = double(13)
+test.err = double(13)
+for(mtry in 1:13){
+  fit = randomForest(Count ~ ., data = train_data, mtry=mtry, ntree = 50)
+  oob.err[mtry] = fit$mse[50]
+  pred = predict(fit, data.frame(test_data))
+  test.err[mtry] = with(test_data, mean( (Count-pred)^2 ))
+}
+
+matplot(1:mtry, cbind(test.err, oob.err), 
+        pch = 23, col = c("red", "blue"), type = "b", ylab="Mean Squared Error")
+legend("topright", legend = c("OOB", "Test"), pch = 23, col = c("red", "blue"))
+
+mse_prune2=test.err[which.min(test.err)]
+
+### Bagging method
+
+mod3=bagging(Count ~ ., data = train_data, nbagg=25,coob    = TRUE)
+
+summary(mod3)
+
+
+### tuning hyparameters
+
+
+ntree <- 10:50
+
+test.err=vector(mode = "numeric", length = length(ntree))
+
+for (i in seq_along(ntree)) {
+  # reproducibility
+  set.seed(123)
+  
+  # perform bagged model
+  model <- bagging(
+    Count ~ ., data = train_data,
+    coob    = TRUE,
+    nbagg   = ntree[i]
+  )
+  # get test error
+  
+  pred = predict(model, data.frame(test_data))
+  test.err[i] = with(test_data, mean( (Count-pred)^2 ))
+  
+}
+
+plot(ntree, test.err, type = 'l', lwd = 2,ylab = 'Mean Squared Error')
+abline(v = ntree[which.min(test.err)], col = "red", lty = "dashed")
+
+ntree[which.min(test.err)] ### tree size with the lowest mse
+
+mse_prune3=test.err[which.min(test.err)]
+
+
+### Generalized Boosted Regression Modeling 
+
+
+mod4=gbm(Count ~ ., data = train_data,n.trees = 5000,
+         distribution = "gaussian",interaction.depth = 4,
+         shrinkage = 0.01)
+
+summary(mod4)
+
+### tuning hyperparameter: tree size 
+
+ntree = seq(from = 100, to = 5000, by = 100)
+
+test.err=vector(mode = "numeric", length = length(ntree))
+
+for (i in seq_along(ntree)) {
+  # reproducibility
+  set.seed(123)
+  
+  # perform bagged model
+  model <- gbm(
+    Count ~ ., data = train_data,
+    n.trees = ntree[i],
+    distribution = "gaussian",interaction.depth = 4,
+    shrinkage = 0.01
+  )
+  # get test error
+  
+  pred = predict(model, data.frame(test_data))
+  test.err[i] = with(test_data, mean( (Count-pred)^2 ))
+  
+}
+
+
+plot(ntree, test.err, type = 'l', lwd = 2,ylab = 'Mean Squared Error')
+abline(v = ntree[which.min(test.err)], col = "red", lty = "dashed")
+
+ntree[which.min(test.err)] ### tree size with the lowest mse
+
+mse_prune4=test.err[which.min(test.err)]
+
+
+### based on the results above, we choose the boosting model as the best model
+### In this model, we can observe that Hour, Temperature, function and 
+### humidity variables play important role in predicting the rental bike counts
+
+### Now we predict the test.csv file using the boosting model 
+
+
+test=read.csv('/Users/danhuang/Desktop/Desktop/Upwork/Anatea/test.csv')
+
+## data preprocessing for test.csv file 
+## remove unneccessary column: ID
+
+test= subset(test, select = -c(ID))
+
+test['seasons']=as.factor(test[,c('Seasons')])
+test['holiday']=as.factor(test[,c('Holiday')])
+test['function']=as.factor(test[,c('Functioning')])
+
+must_convert<-sapply(test,is.factor)       # logical vector telling if a variable needs to be displayed as numeric
+M2<-sapply(test[,must_convert],unclass)    # data.frame of all categorical variables now displayed as numeric
+test<-cbind(test[,!must_convert],M2) 
+
+### drop original categorical variables: Seasons, Holiday, Functioning
+### Keep encoding varibles
+
+test= subset(test, select = -c(Seasons,Holiday,Functioning))
+
+### Deal with Date
+
+test['Date']=lubridate::dmy(as.factor(test[,c('Date')]))
+
+test['Month']=month(test$Date)
+test['Day']=wday(test$Date)
+
+test= subset(test, select = -c(Date))
+
+testing_predictions = predict(mod4, data.frame(test))
+
+write.csv(x=testing_predictions, 
+          file="/Users/danhuang/Desktop/Desktop/Upwork/Anatea/test_predictions.csv")
+
+
+
+
+

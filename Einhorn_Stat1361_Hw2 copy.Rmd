@@ -1,0 +1,586 @@
+---
+title: "Stat 1361 Homework 2"
+author: "Anatea, Einhorn (ace29@pitt.edu)"
+date: "01/31/2022"
+output:
+  pdf_document: 
+    df_print: paged
+---
+
+```{r, warning = FALSE, message=FALSE}
+# This chunk is reserved for loading packages.
+library(MASS)
+library(tidyverse)
+library(ggplot2)
+```
+
+# 2. ISLR Chapter 3 Conceptual Exercises 3, 4
+
+## 3.3 (10 pts)
+
+Please refer to the textbook for details of this question.
+
+## a
+
+**Answers:**
+
+-   **Prediction Multiple Regression:** y = 50 + 20x1 + .07x2 + 35x3 + .01x4 - 10x5
+-   **Highschool Regression:** yHS = 50 + 20x1 + .07x2 + 35(0) + .01x4 - 10(0) = 50 + 20x1 + .07x2 + .01x4
+-   **College Regression:** yCol = 50 + 20x1 + .07x2 + 35(1) + .01x4 + 10x5 = 85 + 20x1 + .07x2 + .01x4 - 10x5
+
+i.  Not true
+
+ii. Not true
+
+iii. This would be correct since IQ and GPA are held constant, there are only 2 factors to consider (levels(1= college, 0 = highschool), and interaction between Level and GPA). If GPA is high enough to increase b5 = -10, to b3 = 35, then the highschool starting salary will be will be higher: If GPA > 35, highschool salary = higher and if GPA \< 35, then college salary will be higher.
+
+iv. Not true.
+
+## b
+
+**Answers: yCol = 85 + 20(4) + .07(110) + .01(4\*110) - 10(4\*1) = 85 + 80 + 7.7 + 4.4 + 40 = 137.1 (thousands)**
+
+## c
+
+**Answers: This would be false, the coefficient of .01 (b4, relationship between GPA and IQ) suggests a relationship with the level of salary, but is unrelated to the interaction effect. This would also depend on standard error of all beta estimates and would need p-value of the coefficient to determine significance.**
+
+## 3.4 (10 pts)
+
+Please refer to the textbook for details of this question.
+
+## a
+
+**Answers: Cubic Regression will have a lower RSS because it is more flexible than linear reg. model and therefore (cubic) can better fit the data to get a lower RSS (have more variables) though both would fit pretty well**
+
+## b
+
+**Answers: Since there is no test data provided we can assume the test RSS would be higher for cubic reg. because training data RSS would be higher. Here, linear regression would have lower test RSS seeing as relationship between x and y is linear. Since more flexible models have higher variance and low bias, and less flexible models have lower variance and higher bias, the linear reg. model will have low bias and be a better fit than cubic.**
+
+## c
+
+**Answers: If nonlinear, then cubic regression line would have a lower RSS because cubic regression would follow points better (less noise - see a.) RSS for cubic reg. would then be lower if compared to linear reg.**
+
+## d
+
+**Answers: We would not be able to use infer anything here because we would need to know the difference between this relationship and the linear. Perhaps: if closer to linear, then linear RSS would also be lower but if closer to cubic then cubic RSS would be lower**
+
+# 3 ISLR Chapter 3 Applied Exercises 9, 10, 13, 14
+
+## 3.9. (10 pts)
+
+Please refer to the textbook for details of this question.
+
+## 3.9.a
+
+```{r}
+setwd("~/Desktop/PITT 21:22/STAT LEARNING & DATA SCIENCE/HW/Homework 2")
+auto <- read.csv("Auto.csv", na.strings = "?")
+auto <- na.omit(auto)
+```
+
+```{r}
+plot(auto)
+```
+
+## 3.9.b
+
+```{r}
+cor(auto[, names(auto) !="name"])
+```
+
+## 3.9.c
+
+```{r}
+model0 = lm(mpg ~. -name, data = auto)
+summary(model0)
+```
+
+-   i\) p-value shows us that there is evidence of a relationship between mpg and the other variables
+
+-   ii\) displacement, year, weight, and origin (pretty much all are significant except cylinders, horsepower, and acceleration)
+
+-   iii\) when every other predictor is held constant, the mpg value increases with each year that passes (mpg increases by 7.16x10\\\^-1 every year) = cars becoming more fuel efficient every year
+
+## 3.9.d
+
+```{r}
+par(mfrow = c(2,2))
+plot(model0)
+
+```
+
+-   first shows non-linear relationship between the response and predictors
+
+-   second shows residuals are normally distributed and skew right, but deviates slights (right)
+
+-   third shows that constant variance of error assumption is not true for the model
+
+-   fourth shows 14 could be a potential leverage point, no unusually large outliers (could potentially be on left (around 327 and 394))
+
+## 3.9.e
+
+```{r}
+model1 = lm(mpg ~. -name+displacement:weight, data = auto)
+summary(model1)
+
+model2 = lm(mpg~. -name+displacement:cylinders+displacement:weight+acceleration:horsepower, data = auto)
+summary(model2)
+
+model3 = lm(mpg~. -name+displacement:cylinders+displacement:weight+year:origin+acceleration:horsepower, data = auto)
+summary(model3)
+
+model4 = lm(mpg~. -name-cylinders-acceleration+year:origin+displacement:weight+displacement:weight+acceleration:horsepower+acceleration:weight, data = auto)
+summary(model4)
+```
+
+-   for all 4 models, last is only one with all only significant variables
+
+## 3.9.f
+
+```{r}
+par(mfrow = c(2,2))
+plot(log(auto$horsepower), auto$mpg)
+plot(sqrt(auto$horsepower), auto$mpg)
+plot((auto$horsepower)^2, auto$mpg)
+```
+
+```{r}
+par(mfrow = c(2,2))
+plot(log(auto$cylinders), auto$mpg)
+plot(sqrt(auto$cylinders), auto$mpg)
+plot((auto$cylinders)^2, auto$mpg)
+```
+
+```{r}
+par(mfrow = c(2,2))
+plot(log(auto$weight), auto$mpg)
+plot(sqrt(auto$weight), auto$mpg)
+plot((auto$weight)^2, auto$mpg)
+```
+
+-   log(horsepower) seems to be closest to being linear though log(weight) also seemed to have a rather linear trend. The other variables (root x and x\^2) didn't seem to show drastic differences between mpg, and cylinders doesn't give us a good idea of correlation with mpg.
+
+```{r}
+# log, sqrt, and ^2 transformations for weight using model 1
+fit.ln1 <- lm(mpg ~. -name+displacement:log(weight), data = auto)
+summary(fit.ln1)
+
+fit.sqrt1 <- lm(mpg ~. -name+displacement:sqrt(weight), data = auto)
+summary(fit.sqrt1)
+
+fit.sq1 <- lm(mpg ~. -name+displacement:(weight)^2, data = auto)
+summary(fit.sq1)
+
+par(mfrow = c(2,2))
+plot(fit.ln1)
+plot(fit.sqrt1)
+plot(fit.sq1)
+```
+
+-   low p val for sqrt of weight suggests that adding this term improves the model, but log and (\^2) didn't seem to have much improvement
+
+## 3.10. (10 pts)
+
+Please refer to the textbook for details of this question.
+
+```{r}
+
+data(package="ISLR2")
+View(Carseats)
+```
+
+## 3.10.a
+
+```{r}
+?(Carseats)
+head(Carseats)
+
+str(Carseats)
+
+Carseats1 = lm(Sales ~ Price+Urban+US, data=Carseats)
+summary(Carseats1)
+```
+
+## 3.10.b
+
+-   Intercept: 13.043 shows that if price is 0 and neither in US nor urban location, then an average of 13,043\$ in sales is expected.
+
+-   Coefficient: (for price) -.0544 showing that for every dollar increase in price, the average of units sold decreases by .0544 (thousands) of units.
+
+-   Urban(Yes): suggests sales will decrease by .022 thousand units compared to UrbanNo
+
+-   Coefficient of USYes: 1.2006 suggest that sales in USwill increase by 1.2006 thousand units (on average) compared to stores abroad
+
+```{r}
+Carseats2 = lm(Sales ~ Price+US, data=Carseats)
+summary(Carseats2)
+
+Carseats3 = lm(Sales ~ Price+Urban, data=Carseats)
+summary(Carseats3)
+```
+
+## 3.10.c
+
+-   $$ Sales = (13.043469 - 0.054459*Price - .021916UrbanYes + 1.200573USYes $$
+
+    -   i = 0 = UrbanNo (not urban); i = 1 = UrbanYes (urban)
+
+    -   i = 0 = USNo (not in the US); i = 1 = USYes (in the US)
+
+```{r}
+
+contrasts(Carseats$Urban)
+contrasts(Carseats$US)
+```
+
+## 3.10.d
+
+-   For predictors Price and US the t-stat is high enough so that there's a less than 5% chance that observed effect is a coincidence. So we would reject the null hypothesis for these 2 predictors
+
+```{r}
+Carseats2$coefficients
+```
+
+## 3.10.e
+
+-   Dropped variable of UrbanYes, as it was insignificant to get Carseats2
+
+```{r}
+Carseats2 = lm(Sales ~ Price+US, data = Carseats)
+summary(Carseats2)
+```
+
+## 3.10.f
+
+-   Because RSS is very similar (and one uses another degree of freedom) the second model would therefore be better. Performance of the models fits the training data very similarly. The ANOVA tests suggests that we don't have enough evidence to reject the null because the p value is so large, and since the the predictors that have been removed (are determining whether a coefficient is equal to 0 or not) the simpler model is better.
+
+```{r}
+anova(Carseats1, Carseats2)
+```
+
+## 3.10.g
+
+-   Price: (-.06, -.04) USYes: (.69, 1.71) Intercept: (11.79, 14.27)
+
+```{r}
+confint(Carseats2)
+
+```
+
+## 3.10.h
+
+-   Based on Normal qq plot and Residuals v. Leverage plot, there's no evidence of any major outliers or high leverage points
+
+```{r}
+par(mfrow=c(2,2))
+lmcar <- lm(Carseats2)
+plot(lmcar)
+
+```
+
+## 3.13. (10 pts)
+
+Please refer to the textbook for details of this question.
+
+```{r}
+set.seed(1)
+n <- 100
+```
+
+## 3.13.a
+
+```{r}
+x <- rnorm(n, 0, 1)
+#x[1:10]
+```
+
+## 3.13.b
+
+```{r}
+eps <- rnorm(n, 0, sqrt(0.25))
+#eps[1:10]
+```
+
+## 3.13.c
+
+-   length of y: 100
+
+-   b0 = -1
+
+-   b1 = .5
+
+```{r}
+y <- -1+.5*x+eps
+length(y)
+```
+
+## 3.13.d
+
+-   looks rather linear but with noise (most likely from the "eps" variable)
+
+```{r}
+plot(x, y)
+```
+
+## 3.13.e
+
+-   estimated b0 and b1 values are pretty close to original b0 and b1. this model has near 0 p-val so the null hypotheses will be rejected
+
+```{r}
+fit1 <- lm(y~x)
+summary(fit1)
+```
+
+## 3.13.f
+
+```{r}
+plot(x, y)
+abline(fit1, col=3)
+abline(-1, .5, col=6)
+legend("bottomright", c("Least Square", "Regression"), col = c(3,6), lty = c(1,1))
+```
+
+## 3.13.g
+
+-   coef of x\\\^2 isn't significant because its p-value is higher than .05 so there isn't sufficient evidence that the quadratic term improves the fit of this model (even though the R\\\^2 is a little higher and RSE is a little lower than the linear model)
+
+```{r}
+fit2 <- lm(y ~ x + I(x^2))
+summary(fit2)
+```
+
+```{r}
+anova(fit1, fit2)
+```
+
+# the anova tables show that
+
+## 3.13.h
+
+-   reduced noise by decreasing variance of normal distribution (used to generate error term eps.) Coefs are close to previous but now the relationship is almost linear, with much higher R\\\^2 and much lower RSE. 2 lines overlap (due to little noise)
+
+```{r}
+set.seed(1)
+n <- 100
+eps <- rnorm(n, sd = 0.125)
+x <- rnorm(100)
+y <- -1 + .5*x + eps
+plot(x, y)
+fit3 <- lm(y ~ x)
+summary(fit3)
+
+abline(fit3, col=3)
+abline(-1, .5, col=6)
+legend("bottomright", c("Least Square", "Regression"), col=c(3, 6), lty = c(1,1))
+```
+
+## 3.13.i
+
+-   now noise has been increased due to the variance of normal distribution use to generate eps. Relationship is no longer linear as it was nearly before, the R\\\^2 is lower with much higher RSE. Since data set is rather large, 2 lines are further apart but still close & parallel
+
+```{r}
+set.seed(1)
+n <- 100
+eps <- rnorm(n, sd = 0.5)
+x <- rnorm(100)
+y <- -1 + .5*x + eps
+plot(x, y)
+fit4 <- lm(y ~ x)
+summary(fit4)
+
+abline(fit4, col=3)
+abline(-1, .5, col=6)
+legend("bottomright", c("Least Square", "Regression"), col=c(3, 6), lty = c(1,1))
+```
+
+## 3.13.j
+
+-   all intervals centered around \~.5. As noise increases, CI's widen (as model line will be further from true) and as noise decreases, there seems to be more predictability within the data set and in turn the model is better.
+
+```{r}
+confint(fit1)
+confint(fit3)
+confint(fit4)
+```
+
+## 3.14. (20 pts)
+
+Please refer to the textbook for details of this question.
+
+## 3.14.a
+
+```{r}
+set.seed(1)
+x1 <- runif(100)
+x2 <- .5*x1+rnorm(100)/10
+y <- 2+2*x1+.3*x2+rnorm(100)
+```
+
+$$ Y = 2 + 2X_1 + .3X_3 + \epsilon \\
+\beta_0 = 2, \beta_1 = 2, \beta_3 = .3 $$
+
+## 3.14.b
+
+-   the two variables seem highly correlated in the positive direction (.835)
+
+```{r}
+plot(x1, x2)
+cor(x1, x2)
+```
+
+## 3.14.c
+
+-   Estimated Coef
+
+$$\beta_0 = 2.1305, \beta_1 = 1.4396, \beta_3 = 1.0097 $$
+
+-   Only estimated value that is close to original is b0
+-   as p-val is less than .05 we can reject the null hypothesis for b1
+-   conversely, we fail to reject the null hypothesis for b2 because its p-val is higher than .05
+
+```{r}
+lm.fit1 <- lm(y~ x1+x2)
+summary(lm.fit1)
+```
+
+## 3.14.d
+
+-   Coef of x1 of this model is larger than previous model with both variables (x1 and x2)
+-   x1 here is significant as the p-val is low and therefore we can reject the null hypothesis
+
+```{r}
+lm.fit2 <- lm(y~ x1)
+summary(lm.fit2)
+```
+
+## 3.14.e
+
+-   Coef of x2 of this model is significantly larger than previous model with both variables (x1 and x2)
+
+-   Once again, x2 is highly significant as the p-val is low so we would reject the null hypothesis
+
+```{r}
+lm.fit3 <- lm(y ~ x2)
+summary(lm.fit3)
+```
+
+## 3.14.f
+
+-   The results from parts c - e don't contradict each other as variables x1 and x2 are highly correlated with the introduced collinearity. This reduces accuracy of the estimated regression coefficients and causes the standard error of b1 to increase. As a result we fail to reject the null hypothesis when we have collinearity (only one is statistically significant)
+
+```{r}
+
+```
+
+## 3.14.g
+
+```{r}
+x1 <- c(x1, 0.1)
+x2 <- c(x2, 0.8)
+y <- c(y, 6)
+```
+
+-   x1 is statistically significant in the second model but not in the first, whereas x2 is significant in both first and third models
+
+```{r}
+lm.fit4 <- lm(y ~ x1 + x2)
+lm.fit5 <- lm(y ~ x1)
+lm.fit6 <- lm(y ~ x2)
+
+summary(lm.fit4)
+summary(lm.fit5)
+summary(lm.fit6)
+```
+
+-   the last points in the first and third model plots are a leverage point, but in the second model the last point is not. in the prediction plots of the first and third models, the last point is not considered to be an outlier but in the second prediction model (x1) the last point is an outlier as it is outside of the \|3\| value range/cutoff/
+-   second model has significantly lower r-square value
+
+```{r}
+par(mfrow=c(2,2))
+plot(lm.fit4)
+
+plot(lm.fit5)
+
+plot(lm.fit6)
+
+plot(predict(lm.fit4), rstudent(lm.fit4))
+
+plot(predict(lm.fit5), rstudent(lm.fit5))
+
+plot(predict(lm.fit6), rstudent(lm.fit6))
+```
+
+# 4 (20 pts)
+
+Please refer to *STAT 1361 Homework 2.pdf* for details of this question.
+
+## 4.a
+
+```{r}
+
+set.seed(10)
+df.train <- as.data.frame(replicate(25,rnorm(25),simplify=F))
+names(df.train) <- paste0('x', 1:25)
+
+sample(1:25, 1)
+# I will use 6th column will be response 
+df.train <- df.train %>% rename( y = x6)
+
+
+```
+
+## 4.b
+
+```{r}
+set.seed(100)
+df.test <- as.data.frame(replicate(25, rnorm(25), simplify = F))
+names(df.test) <- paste0('x', 1:25)
+df.test <- df.test %>% rename(y=x6)
+
+
+```
+
+## 4.c
+
+```{r}
+predictors <- ""
+model <- list()
+MSE.test <- vector()
+MSE.train <- vector()
+
+for(i in c(1:5, 7:25)) {
+  ifelse(i==1, predictors <- "x1", predictors <- paste0(predictors, "+x", i))
+  model[[i]] <- lm(paste("y", "~", predictors), data = df.train)
+  
+  MSE.train[i] <- mean(model[[i]]$residuals^2)
+  MSE.test[i] <- mean((df.test$y - predict.lm(model[[i]], data=df.test))^2)
+}
+
+```
+
+## 4.d
+
+```{r}
+
+ggplot() +
+  geom_point(aes(x = 1:24, y = na.omit(MSE.test), color = "pink")) +
+  geom_point(aes(x = 1:24, y = na.omit(MSE.train), color = "green")) + 
+  labs(
+    x = "# of Predictors", 
+    y = "MSE", 
+    title = "Test v. Training MSE", 
+    color = "Type of MSE"
+    ) + 
+  scale_color_manual(labels=c("MSE.Train", "MSE.Test"), values = c("Pink", "Green"))
+
+```
+
+## 4.e
+
+## 
+
+-   Complex data models over overfit data which is why we see the training performing well but test less so. The test error increases as more predictors are added.
+
+```{r}
+
+```

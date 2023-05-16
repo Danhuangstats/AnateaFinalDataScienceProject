@@ -1,0 +1,395 @@
+---
+title: "Stat 1361 Homework 4"
+author: "Anatea Einhorn (ace29@pitt.edu)"
+date: "03/04/2022"
+output:
+  pdf_document: 
+    df_print: paged
+---
+
+```{r, warning = FALSE, message=FALSE}
+# This chunk is reserved for loading packages.
+library(bootstrap)
+library(boot)
+library(tidyverse)
+library(ISLR2)
+library(ggplot2)
+library(mosaic)
+library(dplyr)
+library(purrr)
+```
+
+# 2. ISLR Chapter 5 Conceptual Exercises 4
+
+# 5.4 (10 pts)
+
+-   **We would be able to estimate standard deviation using the bootstrap method. So we would obtain repeated random samples from the original data set as opposed to creating new data from the population and fitting the model using that. Once we obtain the B estimates we could then estimate for standard error.**
+
+# 3. (10 pts)
+
+Please refer to *STAT 1361 Homework 4.pdf* for details of this question.
+
+## 3(a)
+
+-   There seems to be a moderately positive relationship between GPA and LSAT score
+
+-   Correlation: .7763
+
+```{r}
+data(law)
+plot(law)
+law.corr <- cor(law$LSAT, law$GPA)
+law.corr
+```
+
+## 3(b)
+
+```{r}
+law <- as.data.frame(law)
+LSAT <- law$LSAT
+GPA <- law$GPA
+
+# bootstrap
+set.seed(1)
+
+law.bootstrap <- boot(law, function(law, i){
+  cor(law[i, "LSAT"], law[i,"GPA"], method = 'pearson')}, R=1000)
+law.bootstrap
+
+# results into df
+law.bootstrap.graph <- data.frame(correlation=law.bootstrap$t)
+
+# histogram
+law.bootstap.hist <- ggplot(law.bootstrap.graph, aes(x=law.bootstrap$t[,1])) +
+  geom_histogram(color = "black", fill = "white", binwidth = .025) + 
+  labs(title = "Bootstrap Results of Correlation", 
+       subtitle = "B/w Undergrad. GPA and LSAT scores") + 
+    xlab("Correlation") + ylab("Count") + 
+    geom_vline(aes(xintercept = law.corr), color = "red", size = 1) +
+    theme_minimal()
+
+law.bootstap.hist
+```
+
+## 3(c)
+
+-   Here, we fail to reject the null that true correlation between undergrad LSAT score and GPA is .5 becaise it fall between the 95% CI (.4795 and .9652)
+
+```{r}
+# calculate % CI
+law.bootstrap.ci <- boot.ci(law.bootstrap, type = c("perc"))
+law.bootstrap.ci
+
+law.ci.upper <- .4795
+law.ci.lower <- .9652
+
+# add to histogram 
+law.bootstrap.hist <- ggplot(law.bootstrap.graph, aes(x = law.bootstrap$t[,1])) + 
+  geom_histogram(color = "black", fill = "white", binwidth = .025) + 
+  labs(title = "Bootstrap Results of Correlation",
+       subtitle = "B/w Undergrad. GPA and LSAT scores") +
+  xlab("Correlation") + ylab("Count") + 
+    geom_vline(aes(xintercept = law.corr), color = "red", size = 1) +
+    geom_vline(aes(xintercept = law.ci.lower), color = "green", size = 1) +
+    geom_vline(aes(xintercept = law.ci.upper), color = "green", size = 1)
+
+law.bootstrap.hist
+```
+
+## 3(d)
+
+-   bootstrap estimate of bias = .7769
+
+-   standard bias corrected bootstrap percentile 95% confidence interval is (.5875, 1.0732), so we would reject the null hypothesis that the true correlation is equal to .05 as the value is found within the CI region.
+
+```{r}
+# BS estimate of bias 
+law.bias.est <- 2*cor(LSAT, GPA) - mean(law.bootstrap$t)
+law.bias.est
+
+# bias corrected CI
+law.bias.lower <- 2*cor(LSAT, GPA)-law.ci.upper
+law.bias.upper <- 2*cor(LSAT, GPA)-law.ci.lower
+
+law.bias.lower
+law.bias.upper
+
+# graph 
+law.bootstrap.hist <- ggplot(law.bootstrap.graph, aes(x=law.bootstrap$t[,1])) + 
+  geom_histogram(color= "black", fill = "white", binwidth=.025)+ 
+  labs(title = "Bootstrap Results of Correlation",
+       subtitle = "B/w Undergrad. GPA and LSAT scores") +
+  xlab("Correlation") + ylab("Count") + 
+    geom_vline(aes(xintercept = law.corr), color = "red", size = 1) +
+    geom_vline(aes(xintercept = law.ci.lower), color = "green", size = 1) +
+    geom_vline(aes(xintercept = law.ci.upper), color = "green", size = 1) +
+    geom_vline(aes(xintercept = law.bias.lower), color = "blue", size = 1) +
+    geom_vline(aes(xintercept = law.bias.upper), color = "blue", size = 1)
+    
+law.bootstrap.hist
+```
+
+## 3(e)
+
+-   With p value of .001, we see significant evidence of true correlation between GPA and LSAT scores for undergraduates doesn't = 0
+
+```{r}
+set.seed(111)
+
+# shuffle GPA
+nperm <- 1000
+perm.cor <- rep(0,nperm)
+
+# perm test 
+for(i in 1:nperm){
+  perm.GPA <- sample(law$GPA)
+  perm.cor[i] <- cor(law$LSAT, perm.GPA)
+}
+
+# p value 
+p <- mean(perm.cor > law.corr)
+p
+```
+
+# 4. (20 pts)
+
+Please refer to *STAT 1361 Homework 4.pdf* for details of this question.
+
+## 4(a)
+
+```{r}
+# make training set 
+set.seed(50)
+x1 <- runif(50)
+x2 <- runif(50)
+eps <- rnorm(50, mean = 0, sd = .25)
+y <- x1+x2+eps
+
+train = data.frame(y,x1,x2)
+
+```
+
+## 4(b)
+
+-   Seeing as F-stat is much larger than the critical value (and p value is also much larger), we would reject the null hypothesis and conclude that these predictors are significant.
+-   MSE0 = .082
+
+```{r}
+# make test set 
+set.seed(100)
+test = data.frame(runif(30), runif(30))
+colnames(test) = c("x1", "x2")
+test = mutate(test, y = x1 +x2 + rnorm(30, 0, .25))
+
+# calculate test MSE on trianing 
+lm_fit = lm(y ~ x1 + x2, data = train)
+lm_pred = predict.lm(lm_fit, newdata = test)
+MSE0 = mean((test$y - lm_pred)^2)
+MSE0
+```
+
+## 4(c)
+
+-   since the p-value is less than .05 we would reject the null hypothesis 
+
+```{r}
+# permutation-test (= to overall F-test)
+set.seed(10)
+n = length(train$x1)
+B = 1000
+variable1 = train$x1
+variable2 = train$x2
+
+permsamples1 = matrix(0, nrow=n, ncol=B)
+colnames(permsamples1) = rep("x1", ncol(permsamples1))
+permsamples2 = matrix(0, nrow=n, ncol=B)
+colnames(permsamples1) = rep("x2", ncol(permsamples2))
+
+for (i in 1:B) {
+  permsamples1[,i] = sample(variable1, size = n, replace=F)
+  permsamples2[,i] = sample(variable2, size = n, replace=F)
+}
+
+permtest.MSE = rep(0, B)
+lm_fitperm = list()
+
+for (i in 1:B) {
+  train_perm = data.frame(y) %>% mutate("x1" = permsamples1[,i]) %>% mutate("x2" = permsamples2[,i])
+  lm_fitperm[[i]] = lm(y ~ x1 + x2, data = train_perm)
+  lm.pred = predict.lm(object = lm_fitperm[[i]], newdata=test)
+  permtest.MSE[i] = mean((test[, 3] - lm.pred)^2)
+}
+
+#histogram of permutated data 
+hist(permtest.MSE, col=4, xlab = "MSE", ylab = "Counts", main = "1000 Permutation test MSE")
+abline(v=MSE0, col=2, lwd=2)
+
+#p-value
+p_value = mean(permtest.MSE < MSE0)
+p_value
+
+```
+
+## 4(d)
+
+```{r}
+#permutation-test (= to individual t-test)
+set.seed(100)
+n = length(train$x1)
+B = 1000
+variable = train$x2
+
+permsamples = matrix(0, nrow=n, ncol=B)
+colnames(permsamples) = rep("x2", ncol(permsamples))
+
+for (i in 1:B) {
+  permsamples[,i] = sample(variable1, size = n, replace=F)
+ }
+
+permtest.MSE = rep(0, B)
+lm_fitperm = list()
+
+for (i in 1:B) {
+  train_perm = data.frame(x1, y) %>%mutate("x2" = permsamples1[,i]) 
+  lm_fitperm[[i]] = lm(y ~ x1 + x2, data = train_perm)
+  lm.pred = predict.lm(object = lm_fitperm[[i]], newdata=test)
+  permtest.MSE[i] = mean((test[, 3] - lm.pred)^2)
+}
+```
+
+## 4(e)
+
+```{r}
+set.seed(100)
+train_new = as.data.frame(matrix(runif(500*10), nrow=500, ncol=100))
+names(train_new) = paste0('x', 1:(ncol(train_new)))
+eps_new = rnorm(500, 0, 0.25)
+train_new = train_new %>% mutate(y = x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8 + x9 + x10 + eps_new)
+
+#create a new test set
+test_new = as.data.frame(matrix(runif(50*10), nrow=50, ncol=10))
+names(test_new) = paste0('x', 1:(ncol(test_new)))
+test_new = test_new %>% mutate(y = x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8 + x9 + x10 + rnorm(50, 0, 0.25))
+
+#calculate new test MSE
+lm_fitperm_new = lm(y ~ x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8 + x9 + x10, data = train_new)
+lm_pred_new = predict.lm(object = lm_fitperm_new, newdata = test_new)
+mse0_new = mean((test_new[, 11] - lm_pred_new)^2)
+mse0_new
+```
+
+## 4(f)
+
+```{r}
+#perm test (= to partial F-test)
+set.seed(100)
+n = length(train_new$x1)
+B = 1000
+
+variable8 = train_new$x8
+variable9 = train_new$x9
+variable10 = train_new$x10
+
+permsamples8 = matrix(0, nrow=n, ncol=B)
+colnames(permsamples8) = rep("x8", ncol(permsamples8))
+permsamples9 = matrix(0, nrow=n, ncol=B)
+colnames(permsamples9) = rep("x9", ncol(permsamples9))
+permsamples10 = matrix(0, nrow=n, ncol=B)
+colnames(permsamples10) = rep("x10", ncol(permsamples10))
+
+for (i in 1:B) {
+  permsamples8[,i] = sample(variable8, size = n, replace=F)
+  permsamples9[,i] = sample(variable9, size = n, replace=F)
+  permsamples10[,i] = sample(variable10, size = n, replace=F)
+}
+
+permtest.MSE = rep(0, B)
+lm_fitperm = list()
+
+for (i in 1:B) {
+  train_perm = train_new %>% select(-c(x8, x9, x10)) %>% mutate("x8" = permsamples8[,i]) %>% mutate("x9" = permsamples9[,i]) %>% mutate("x10" = permsamples10[,i])
+  lm_fitperm[[i]] = lm(y ~ x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8 + x9 + x10, data = train_perm)
+  lm.pred = predict.lm(object = lm_fitperm[[i]], newdata=test_new)
+  permtest.MSE[i] = mean((test_new[, 11] - lm.pred)^2)
+}
+
+#histogram of permuted data
+hist(permtest.MSE, col=4, breaks = 15, xlim=c(0, 0.5), xlab = "MSE", ylab = "Counts", main = "1000 MSE Perm Test")
+abline(v=mse0_new, col=2, lwd=2)
+```
+
+# 5. (10 pts)
+
+Please refer to *STAT 1361 Homework 4.pdf* for details of this question.
+
+## 5(a)
+
+-   probabilities:
+
+    -   (+) vaccine: 8/21500
+
+    -   (-) vaccine: 162/21500
+
+-   After doing the 2 sided z test, we find the p-value is less than 2.2e-16 meaning we have sufficient evidence to conclude that proportion of COVID cases between vaccinated and unvaccinated individuals differs in the trial
+
+-   the null = if probabilities between 2 groups are the same, the alternative = if probabilities between the 2 groups are not the same
+
+```{r}
+z.test <- prop.test(x = c(162,8), n = c(21500, 21500), alternative = "two.sided", correct = T)
+z.test
+```
+
+## 5(b)
+
+-   If the vaccine wasn't effective we might expect the proportions to be similar between the 2 groups
+
+## 5(c)
+
+-   would perform a t test to predict the means between original and randomized data
+
+## 5(d)
+
+```{r}
+trial = data.frame(rep(0, 43000), rep(0, 43000))
+trial[1:21500, 1] = "placebo"
+trial[21501:43000, 1] = "VAX"
+trial[1:162, 2] = "COVID"
+trial[21501:21508, 2] = "COVID"
+trial[163:21500, 2] = "no COVID"
+trial[21509:43000, 2] = "no COVID"
+names(trial)  = c("treatment", "result")
+table = table(trial)
+
+#randomization test
+attach(trial)
+observed = diffmean(result == "no COVID" ~ treatment)
+null = do(1000) * diffmean(result == "COVID" ~ shuffle(treatment))
+
+# t-stat histogram (un. null)
+ggplot(data = null) + geom_histogram(mapping = aes(x=diffmean)) +
+  labs(title = "T-Stat Histogram", x = "Difference of Proportions", y = "Frequency") +
+  geom_vline(xintercept = observed, col = 2)
+
+# p-val 
+pvalue = prop(~ diffmean >= observed, data = null)
+pvalue
+
+### I know we shouldn't use shuffle but I didn't know how else to calculate this 
+```
+
+```{r}
+### including this to use rbernoulli ?
+set.seed(100)
+nperm = 1000
+random = c()
+for (i in 1:nperm){
+  VAX = sum(rbernoulli(21500, 170/43000))
+  placebo = sum(rbernoulli(21500, 170/43000))
+  diff = VAX - placebo
+  random = c(random, diff)
+}
+
+random_orig = c(random, 154)
+hist(random, col = 4, main = "Randomization Test", xlab = "Differences", ylab = "Counts")
+
+```

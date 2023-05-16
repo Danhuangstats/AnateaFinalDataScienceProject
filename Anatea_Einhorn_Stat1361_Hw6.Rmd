@@ -1,0 +1,330 @@
+---
+title: "Stat 1361 Homework 6"
+author: "Anatea Einhorn (ace29@pitt.edu)"
+date: "03/25/2022"
+output:
+  pdf_document: 
+    df_print: paged
+---
+
+```{r, warning = FALSE, message=FALSE}
+# This chunk is reserved for loading packages.
+library(bootstrap)
+library(boot)
+library(tidyverse)
+library(ggthemes)
+library(broom)
+library(knitr)
+library(caret)
+library(ISLR2)
+library(MASS)
+library(ggplot2)
+library(GGally)
+library(mosaic)
+library(dplyr)
+library(purrr)
+library(glmnet)
+library(pls)
+library(leaps)
+library(Matrix)
+library(splines)
+library(gam)
+```
+
+# 2. ISLR Chapter 7 Conceptual Exercises 5
+
+# 7.5 (10 pts)
+
+Please refer to the textbook for details of this question.
+
+## 7.5.a
+
+**Answers: g2 will most likely have smaller training RSS because it would be a higher order polynomial because of order of the penalty term (so it will be more flexible.)**
+
+## 7.5.b
+
+**Answers: Since g2 is expected to be more flexible with the extra degree of freedom, it might overfit the data and hence why g1 would more likely have the smaller test RSS.**
+
+## 7.5.c
+
+**Answers: Since the lambda = 0, then g1 = g2 and therefore they would both have the same training and test RSS.**
+
+# 3. ISLR Chapter 7 Applied Exercises 8, 9, 10
+
+# 7.8 (10 pts)
+
+Please refer to the textbook for details of this question.
+
+```{r}
+set.seed(1)
+pairs(Auto)
+```
+
+-   mpg is inverse of cylinders, displacement, horsepower, and weight
+
+```{r}
+rss = rep(NA, 10)
+fits = list()
+for(i in 1:10) {
+  fits[[i]] = lm(mpg~poly(displacement, i), data = Auto)
+  rss[i]=deviance(fits[[i]])
+}
+rss
+
+anova(fits[[1]], fits[[2]], fits[[3]], fits[[4]], fits[[5]])
+```
+
+-   here we see that the training RSS decreases with time so the quadratic polynomial equation works in terms of ANOVA test
+
+```{r}
+# displacement 
+cv.error1 = rep(NA, 15)
+for (i in 1:15){
+  fit = glm(mpg ~ poly(displacement, i), data = Auto)
+  cv.error1[i] = cv.glm(Auto, fit, K = 10)$delta[2]
+}
+which.min(cv.error1)
+
+cv.error1
+
+plot(1:15, cv.error1,
+     xlab = "Degrees",
+     ylab = "CV Error",
+     type = "l")
+
+# horsepower
+cv.error2 = rep(NA, 15)
+for (i in 1:15){
+  fit = glm(mpg ~ poly(horsepower, i), data = Auto)
+  cv.error2[i] = cv.glm(Auto, fit, K = 10)$delta[2]
+}
+which.min(cv.error2)
+
+cv.error2
+
+plot(1:15, cv.error2,
+     xlab = "Degrees",
+     ylab = "CV Error",
+     type = "l")
+
+#weight
+cv.error3 = rep(NA, 15)
+for (i in 1:15){
+  fit = glm(mpg ~ poly(weight, i), data = Auto)
+  cv.error3[i] = cv.glm(Auto, fit, K = 10)$delta[2]
+}
+which.min(cv.error3)
+
+cv.error3
+
+plot(1:15, cv.error3,
+     xlab = "Degrees",
+     ylab = "CV Error",
+     type = "l")
+```
+
+-   cross-validation test selects 10th degree polynomial and weight, displacement, and horsepower seemed to have the strongest significance
+
+# 7.9 (10 pts)
+
+Please refer to the textbook for details of this question.
+
+## 7.9.a
+
+-   each value of dis shows to be statistically significant (not much overfitting)
+
+```{r}
+set.seed(1)
+data("Boston")
+
+lm.poly <- lm(nox ~ poly(dis, 3), data = Boston)
+summary(lm.poly)
+```
+
+```{r}
+dis.lims <- range(Boston$dis)
+dis.grid <- seq(from = dis.lims[1], to = dis.lims[2])
+
+poly.pred <- predict(lm.poly, newdata = list(dis = dis.grid))
+
+plot(nox ~ dis,
+     data = Boston,
+     cex = .5, 
+     col = "black")
+title("Cubic Polynomial Regression")
+lines(dis.grid, poly.pred, 
+      lwd = 2, 
+      col = "green")
+```
+
+## 7.9.b
+
+-   Train RSS decreases as the degrees of polynomials do.
+
+```{r}
+errors <- list()
+models <- list()
+pred.df <- data_frame(V1 = 1:506)
+for (i in 1:9) {
+  models[[i]] <- lm(nox~poly(dis, i), data = Boston)
+  preds <- predict(models[[i]])
+  pred.df[[i]] <- preds 
+  errors[[i]] <- sqrt(mean((Boston$nox - preds)^2))
+}
+
+errors <- unlist(errors)
+
+names(pred.df) <- paste('Level', 1:9)
+tibble(RMSE = errors) %>%
+  mutate(Poly = row_number()) %>%
+  ggplot(aes(Poly, RMSE, fill = Poly == which.min(errors)))+
+  geom_col() +
+  guides(fill = "none") +
+  scale_x_continuous(breaks=1:9) +
+  coord_cartesian(ylim=c(min(errors), max(errors)))+
+  labs(x = 'Polynomial Degree')
+
+# when fit and tested on same data, model with largest polynomial degree also has the lowest RSS 
+Boston%>%
+  cbind(pred.df)%>%
+  gather(Polynomial, prediction, -(1:14))%>%
+  mutate(Polynomial=factor(Polynomial,
+                           levels = unique(as.character(Polynomial))))%>%
+  ggplot()+
+  ggtitle('Predicted Values per Level of Polynomial')+
+  geom_point(aes(dis, nox, col = '3'))+
+  geom_line(aes(dis, prediction, col = '2'), size = 1.5)+
+  scale_color_manual(name = 'Value Type',
+                     labels = c('Observed', 'Predicted'),
+                     values = c('7', '4'))+
+  facet_wrap(~Polynomial, nrow = 3)
+
+#plotting polynomials from degreess of 1-10
+all.rss = rep(NA, 10)
+for (i in 1:10){
+  lm.fit = lm(nox ~ poly(dis, i), data = Boston)
+  all.rss[i] = sum(lm.fit$residuals^2)
+}
+
+all.rss
+```
+
+## 7.9.c
+
+-   10-fold CV shows the CV error decreases as degree is increased from 1 to 3 then is pretty consistent until 5 and after that begins to increase as it nears the higher degrees. Here, we would pick 4 as the best polynomial degree.
+
+```{r}
+all.delta = rep(NA, 10)
+for (i in 1:10) {
+  glm.fit = glm(nox ~ poly(dis, i), data = Boston)
+  all.delta[i] = cv.glm(Boston, glm.fit, K = 10)$delta[2]
+}
+plot(1:10, all.delta, xlab = "Degree", ylab = "CV Error", type = "l", pch = 20, lwd = 2)
+```
+
+## 7.9.d
+
+-   Because the dis variable has limit of about 1 and 13, we could split the range in to about 4 intervals and therefore our knots would be at 4, 7, and 11.
+
+```{r}
+spline.fit <- lm(nox ~ bs(dis, df=4, knots=c(4,7,11)),data=Boston)
+summary(spline.fit)
+```
+
+-   This shows us that all the terms within the spline are significant
+
+```{r}
+ggplot(Boston, aes(x=dis, y=nox)) + geom_point() + stat_smooth(method = "lm", formula = y ~ bs(x,4,knots=c(4,df=7,11)))
+```
+
+## 7.9.e
+
+-   The train RSS will decrease until df=14 then will slightly increase for df=15 and 16
+
+```{r}
+# fitting regression splines 
+all.cv = rep(NA, 16)
+for (i in 3:16) {
+    lm.fit = lm(nox ~ bs(dis, df = i), data = Boston)
+    all.cv[i] = sum(lm.fit$residuals^2)
+}
+all.cv[-c(1, 2)]
+```
+
+## 7.9.f
+
+-   The CV error jumps around more but keeps the minimum at df = 10 so we would pick 10 as optimal degrees of freedom.
+
+```{r warning = FALSE}
+all.cv = rep(NA, 16)
+for (i in 3:16) {
+    lm.fit = glm(nox ~ bs(dis, df = i), data = Boston)
+    all.cv[i] = cv.glm(Boston, lm.fit, K = 10)$delta[2]
+}
+
+plot(3:16, all.cv[-c(1, 2)], lwd = 2, type = "l", xlab = "df", ylab = "CV error")
+```
+
+# 7.10 (10 pts)
+
+Please refer to the textbook for details of this question.
+
+## 7.10.a
+
+-   The scores all show that size 6 is the lowest possible size for the subset for scores within .2 standard deviations of ideal score. Therefore we pick 6 as the best subset size and find the top 6 variables from entire data set; Private, Room.Board, PhD, perc.alumni, Expend, and Grad.Rate
+
+```{r warning = FALSE}
+set.seed(1)
+
+train <- sample(c(TRUE, FALSE), nrow(College), replace = TRUE) 
+test <-  (!train)
+
+col.train = College[train, ]
+col.test = College[test, ]
+
+fit.fwd <- regsubsets(Outstate ~ ., data = col.train, method = 'forward')
+fit.summary <- summary(fit.fwd)
+fit.summary
+
+which.min(fit.summary$bic)
+coef(fit.fwd, id = 6)
+```
+
+```{r}
+reg.fit = regsubsets(Outstate ~ ., data = College, method = "forward")
+coefs = coef(reg.fit, id = 6)
+names(coefs)
+```
+
+## 7.10.b
+
+-   Expenditure and graduation rate look non-linear.
+
+```{r}
+gam.fit = gam(Outstate ~ Private + s(Room.Board, df = 2) + s(PhD, df = 2) + 
+    s(perc.alumni, df = 2) + s(Expend, df = 5) + s(Grad.Rate, df = 2), data = col.train)
+par(mfrow = c(2, 3))
+plot(gam.fit, se = T, col = "blue")
+```
+
+## 7.10.c
+
+-   The R\^2 tests gives us a value of .766 using GAM with the 6 predictors so there is slight improvement from the test RSS we got using OLS.
+
+```{r}
+gam.pred = predict(gam.fit, col.test)
+gam.err = mean((col.test$Outstate - gam.pred)^2)
+gam.err
+
+gam.tss = mean((col.test$Outstate - mean(col.test$Outstate))^2)
+test.rss = 1 - gam.err/gam.tss
+test.rss
+```
+
+## 7.10.d
+
+-   The non-parametric ANOVA table shows strong evidence of non-linear relationship between Outstate tuition and expenditure and a less strong non-linear relationship between room.board and grad.rate with Outstate.
+
+```{r}
+summary(gam.fit)
+```

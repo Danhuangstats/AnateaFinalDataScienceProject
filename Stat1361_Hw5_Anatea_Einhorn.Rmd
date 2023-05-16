@@ -1,0 +1,638 @@
+---
+title: "Stat 1361 Homework 5"
+author: "Anatea Einhorn (ace29@pitt.edu)"
+date: "03/18/2022"
+output:
+  pdf_document: 
+    df_print: paged
+---
+
+```{r, warning = FALSE, message=FALSE}
+# This chunk is reserved for loading packages.
+library(bootstrap)
+library(boot)
+library(tidyverse)
+library(ISLR2)
+library(ggplot2)
+library(mosaic)
+library(dplyr)
+library(purrr)
+library(glmnet)
+library(pls)
+library(leaps)
+library(Matrix)
+```
+
+# 2. ISLR Chapter 6 Conceptual Exercises 2, 3, 4
+
+# 6.2 (10 pts)
+
+Please refer to the textbook for details of this question.
+
+## 6.2.a
+
+**Answers:**
+
+**iii** is correct. (*Remove incorrect ones.*)
+
+**Reasons: Lasso has advantage over LS due to bias-variance trade off. When LS estimates have high variance, the lasso can give a reduced variance with only small increase in bias. This in turn generates more accurate predictions and since lasso also can implement variable selection, it is easier to interpret.**
+
+## 6.2.b
+
+**Answers:**
+
+**iii** is correct. (*Remove incorrect ones.*)
+
+**Reasons: Ridge regression also has an advantage over LS because of bias-variance trade-off. As the delta increases, the flexibility of fit of ridge regression decreases which results in decreased variance and increased bias. When there is a flight change in the training data, LS coefficient will produce a much larger change and hold a larger variance. Ridge rigression is still able to perform well by trading off only a small increase in the bias but larger decrease in variance. Between the 2, ridge regression will work better where LS estimates have a higher variance.**
+
+## 6.2.c
+
+**Answers:**
+
+**ii** is correct. (*Remove incorrect ones.*)
+
+**Reasons: Non-linear methods are more flexible than LS so will produce improved prediction accuracy when the increase in variance is less than the decrease in bias.**
+
+# 6.3 (10 pts)
+
+Please refer to the textbook for details of this question.
+
+## 6.3.a
+
+**Answers:**
+
+**iv** is correct. (*Remove incorrect ones.*)
+
+**Reasons: The beta coefficients are restricted as s increases from 0 so the model becomes increasingly flexible in turn producing a decrease in the training RSS.**
+
+## 6.3.b
+
+**Answers:**
+
+**ii** is correct. (*Remove incorrect ones.*)
+
+**Reasons: As s increases from 0, the beta coefficients become less restricted so the model becomes more flexible which results in a decrease in the test RSS before increasing again.**
+
+## 6.3.c
+
+**Answers:**
+
+**iii** is correct. (*Remove incorrect ones.*)
+
+**Reasons: Restriction of beta coefficients makes the model more flexible and therefore increases the variance.**
+
+## 6.3.d
+
+**Answers:**
+
+**iv** is correct. (*Remove incorrect ones.*)
+
+**Reasons: Squared bias steadily decreases as flexibility increases because of restriction of beta coefficients**
+
+## 6.3.e
+
+**Answers:**
+
+**v** is correct. (*Remove incorrect ones.*)
+
+**Reasons: This is because the irreducible error is a constant independent of the model (as well as independent value of s)**
+
+# 6.4 (10 pts)
+
+Please refer to the textbook for details of this question.
+
+## 6.4.a
+
+**Answers:**
+
+**iii** is correct. (*Remove incorrect ones.*)
+
+**Reasons: The more the beta coefficients are restricted, the model in turn becomes less flexible which creates a steady increase in training RSS.**
+
+## 6.4.b
+
+**Answers:**
+
+**ii** is correct. (*Remove incorrect ones.*)
+
+**Reasons: As lambda increases from 0, the beta coefficients are more restricted so model becomes less flexible - producing an initial decrease in the test RSS before increasing again.**
+
+## 6.4.c
+
+**Answers:**
+
+**iv** is correct. (*Remove incorrect ones.*)
+
+**Reasons: As lambda increases from 0 we restrict the beta coefficients more so they deviate from the LS estimates, which in turn causes the model to become less flexible decreasing the variance.**
+
+## 6.4.d
+
+**Answers:**
+
+**iii** is correct. (*Remove incorrect ones.*)
+
+**Reasons: As lambda increases from 0, we restrict beta coefficients more, deviating from LS estimates, so model again become less flexible and increases bias.**
+
+## 6.4.e
+
+**Answers:**
+
+**v** is correct. (*Remove incorrect ones.*)
+
+**Reasons: Again this will remain constant because the irreducible error is independent of model and therefore of the value lambda**
+
+# 3. ISLR Chapter 6 Applied Exercises 9, 10
+
+9. 
+
+```{r}
+#a
+attach(College)
+
+set.seed(100)
+
+
+train_index <- sample(1:nrow(College), round(nrow(College) * 0.8))
+
+train <- College[train_index, ]
+test <- College[-train_index, ]
+
+
+#b
+lm.fit <- lm(Apps ~ ., data = train)
+
+
+ols.pred <- predict(lm.fit, test)
+ols.mse <- mean((ols.pred - test$Apps)^2)
+ols.mse
+
+
+#c
+train.mat = model.matrix(Apps~., data=train)
+test.mat = model.matrix(Apps~., data=test)
+grid = 10 ^ seq(4, -2, length=100)
+mod.ridge = cv.glmnet(train.mat, train[, "Apps"], alpha=0, lambda=grid, thresh=1e-12)
+lambda.best = mod.ridge$lambda.min
+lambda.best
+
+#d
+ridge.pred = predict(mod.ridge, newx=test.mat, s=lambda.best)
+ridge.mse = mean((test[, "Apps"] - ridge.pred)^2)
+ridge.mse
+
+#e
+model.lasso = cv.glmnet(train.mat, train[, "Apps"], alpha=1, lambda=grid, thresh=1e-12)
+lambda.best = model.lasso$lambda.min
+lambda.best
+
+
+lasso.pred = predict(model.lasso, newx=test.mat, s=lambda.best)
+lasso.mse = mean((test[, "Apps"] - lasso.pred)^2)
+lasso.mse
+
+
+mod.lasso = glmnet(model.matrix(Apps~., data=College), College[, "Apps"], alpha=1)
+predict(mod.lasso, s=lambda.best, type="coefficients")
+
+
+#e
+pcr.fit = pcr(Apps~., data=train, scale=T, validation="CV")
+validationplot(pcr.fit, val.type="MSEP")
+
+
+pcr.pred = predict(pcr.fit, test, ncomp = 9)
+pcr.mse = mean((pcr.pred - test$Apps)^2)
+pcr.mse
+
+
+#f
+pls.fit = plsr(Apps~., data=train, scale=T, validation="CV")
+validationplot(pls.fit, val.type="MSEP")
+
+
+pls.pred = predict(pls.fit, test, ncomp = 8)
+pls.mse = mean((pls.pred - test$Apps)^2)
+pls.mse
+
+
+#g
+test.avg = mean(test$Apps)
+
+(lm.r2 = 1 - mean((ols.pred - test$Apps)^2)/mean((test.avg - test$Apps)^2))
+(ridge.r2 = 1 - mean((ridge.pred - test$Apps)^2)/mean((test.avg - test$Apps)^2))
+(lasso.r2 = 1 - mean((lasso.pred - test$Apps)^2)/mean((test.avg - test$Apps)^2))
+(pcr.r2 = 1 - mean((pcr.pred - test$Apps)^2)/mean((test.avg - test$Apps)^2))
+(pls.r2 = 1 - mean((pls.pred - test$Apps)^2)/mean((test.avg - test$Apps)^2))
+
+data.frame(method = c("OLS", "Ridge", "Lasso", "PCR", "PLS"), 
+           test_MSE = c(ols.mse, ridge.mse, lasso.mse, pcr.mse, pls.mse), 
+           test_R2 = c(lm.r2, ridge.r2, lasso.r2, pcr.r2, pls.r2)) %>%
+             
+arrange(test_MSE)
+```
+
+# 6.10 (20 pts)
+
+Please refer to the textbook for details of this question.
+
+## 6.10.a
+
+```{r}
+set.seed(1)
+p = 20
+n = 1000
+x = matrix(rnorm(n * p), n, p)
+B = rnorm(p)
+B[3] = 0
+B[4] = 0
+B[9] = 0
+B[19] = 0
+B[10] = 0
+eps = rnorm(p)
+y = x %*% B + eps          
+
+```
+
+## 6.10.b
+
+```{r}
+train = sample(seq(1000), 100, replace = FALSE)
+y.train = y[train, ]
+y.test = y[-train, ]
+x.train = x[train, ]
+x.test = x[-train, ]
+```
+
+## 6.10.c
+
+```{r}
+regfit.full = regsubsets(y ~ ., data = data.frame(x = x.train, y = y.train), 
+    nvmax = p)
+val.errors = rep(NA, p)
+x_cols = colnames(x, do.NULL = FALSE, prefix = "x.")
+for (i in 1:p) {
+    coefi = coef(regfit.full, id = i)
+    pred = as.matrix(x.train[, x_cols %in% names(coefi)]) %*% coefi[names(coefi) %in% 
+        x_cols]
+    val.errors[i] = mean((y.train - pred)^2)
+}
+plot(val.errors, ylab = "Training MSE", pch = 19, type = "b")
+```
+
+
+## 6.10.d
+
+```{r}
+val.errors = rep(NA, p)
+for (i in 1:p) {
+    coefi = coef(regfit.full, id = i)
+    pred = as.matrix(x.test[, x_cols %in% names(coefi)]) %*% coefi[names(coefi) %in% 
+        x_cols]
+    val.errors[i] = mean((y.test - pred)^2)
+}
+plot(val.errors, ylab = "Test MSE", pch = 19, type = "b")
+```
+
+## 6.10.e
+
+-   18 variable model had lowest test error. Test MSE's mainly decrease until this model. The raise a bit but even out around the same test MSE from the 10-20 variable models.
+
+```{r}
+which.min(val.errors)
+```
+
+## 6.10.f
+
+-   not including variables \~ 0
+
+```{r}
+coef(regfit.full, id = 18)
+```
+## 6.10.g
+
+-   Model with 2 variable minimizes error between estimated and true coefficient so therefore line with best fit might not have best error.
+
+# 4. (20 pts)
+
+Please refer to *STAT 1361 Homework 5.pdf* for details of this question.
+
+
+```{r}
+#a
+set.seed(1)
+Beta <- c(1, 1, 1, 1, 1, 0, 0, 0, 0, 0)
+X <- matrix(rnorm(100*10), ncol = 10, nrow =100)
+epsilon <- rnorm(100, 0, .5)
+Y_train <- X%*%Beta+epsilon
+Y_train <- as.vector(Y_train)
+data <- matrix(c(Y_train,X), ncol = 11, nrow = 100)
+colnames(data)<- c('y','x1', 'x2', 'x3','x4', 'x5', 'x6', 'x7', 'x8', 'x9', 'x10')
+train <- as.data.frame(data)
+
+#b
+X <- matrix(rnorm(10000*10), ncol = 10, nrow =10000)
+epsilon <- rnorm(10000, 0, .5)
+Y <- X%*%Beta+epsilon
+Y <- as.vector(Y)
+data <- matrix(c(Y,X), ncol = 11, nrow = 10000)
+colnames(data)<- c('y','x1', 'x2', 'x3','x4', 'x5', 'x6', 'x7', 'x8', 'x9', 'x10')
+test <- as.data.frame(data)
+
+#c
+x <- model.matrix(y ~., train)[,-1]
+x_test <- model.matrix(y~., test)[,-1]
+y <- train$y
+grid = 10 ^ seq(10, -2, length=100)
+lasso.mod <- glmnet(x, y, alpha = 1, lambda = grid)
+cv.out <- cv.glmnet(x, y, alpha = 1)
+plot(cv.out)
+bestlam <- cv.out$lambda.min
+lasso.pred <- predict(lasso.mod, s = bestlam, newx = x_test)
+mean((lasso.pred - test$y)^2)
+
+
+
+#d
+grid <- 10^seq(10, -2, length = 100)
+out <-  glmnet( x, y, alpha = 1, lambda = grid)
+lasso.coef <- predict(out, type = 'coefficients', s = bestlam)[1:11,]
+index <- c()
+
+for (i in 2:11){
+  if (as.numeric(lasso.coef[i] != 0)){
+    index <- c(index, i)
+  }
+}
+train_small <- train[c(1, index)]
+test_small <- test[c(1, index)]
+lm.fit <- lm(y~., train_small)
+lm.pred  <- predict(lm.fit, test_small)
+mean((lm.pred - test$y)^2)
+
+
+#e
+b = 1000
+error_lasso_0.5 <-c()
+error_OAL_0.5 <- c()
+for (i in 1:b){
+  Beta <- c(1, 1, 1, 1, 1, 0, 0, 0, 0, 0)
+  X <- matrix(rnorm(100*10), ncol = 10, nrow =100)
+  epsilon <- rnorm(100, 0, .5)
+  Y_train <- X%*%Beta+epsilon
+  Y_train <- as.vector(Y_train)
+  data <- matrix(c(Y_train,X), ncol = 11, nrow = 100)
+  colnames(data)<- c('y','x1', 'x2', 'x3','x4', 'x5', 'x6', 'x7', 'x8', 'x9', 'x10')
+  train <- as.data.frame(data)
+  x <- model.matrix(y ~., train)[,-1]
+  x_test <- model.matrix(y~., test)[,-1]
+  y <- train$y
+  lasso.mod <- glmnet(x, y, alpha = 1, lambda = grid)
+  cv.out <- cv.glmnet(x, y, alpha = 1)
+  bestlam <- cv.out$lambda.min
+  lasso.pred <- predict(lasso.mod, s = bestlam, newx = x_test)
+  error_lasso_0.5<- c(error_lasso_0.5, mean((lasso.pred - test$y)^2))
+  out <-  glmnet( x, y, alpha = 1, lambda = grid)
+  lasso.coef <- predict(out, type = 'coefficients', s = bestlam)[1:11,]
+  index <- c()
+  for (i in 2:11){
+    if (as.numeric(lasso.coef[i] != 0)){
+      index <- c(index, i)
+    }
+  }
+  train_small <- train[c(1, index)]
+  test_small <- test[c(1, index)]
+  lm.fit <- lm(y~., train_small)
+  lm.pred  <- predict(lm.fit, test_small)
+  error_OAL_0.5 <- c(error_OAL_0.5, mean((lm.pred - test$y)^2))
+}
+mean(error_lasso_0.5)
+mean(error_OAL_0.5)
+
+#f
+b = 1000
+error_lasso_0.01 <-c()
+error_OAL_0.01 <- c()
+for (i in 1:b){
+  Beta <- c(1, 1, 1, 1, 1, 0, 0, 0, 0, 0)
+  X <- matrix(rnorm(100*10), ncol = 10, nrow =100)
+  epsilon <- rnorm(100, 0, .01)
+  Y_train <- X%*%Beta+epsilon
+  Y_train <- as.vector(Y_train)
+  data <- matrix(c(Y_train,X), ncol = 11, nrow = 100)
+  colnames(data)<- c('y','x1', 'x2', 'x3','x4', 'x5', 'x6', 'x7', 'x8', 'x9', 'x10')
+  train <- as.data.frame(data)
+  x <- model.matrix(y ~., train)[,-1]
+  x_test <- model.matrix(y~., test)[,-1]
+  y <- train$y
+  lasso.mod <- glmnet(x, y, alpha = 1, lambda = grid)
+  cv.out <- cv.glmnet(x, y, alpha = 1)
+  bestlam <- cv.out$lambda.min
+  lasso.pred <- predict(lasso.mod, s = bestlam, newx = x_test)
+  error_lasso_0.01 <- c(error_lasso_0.01, mean((lasso.pred - test$y)^2))
+  out <-  glmnet( x, y, alpha = 1, lambda = grid)
+  lasso.coef <- predict(out, type = 'coefficients', s = bestlam)[1:11,]
+  index <- c()
+  for (i in 2:11){
+    if (as.numeric(lasso.coef[i] != 0)){
+      index <- c(index, i)
+    }
+  }
+  train_small <- train[c(1, index)]
+  test_small <- test[c(1, index)]
+  lm.fit <- lm(y~., train_small)
+  lm.pred  <- predict(lm.fit, test_small)
+  error_OAL_0.01 <- c(error_OAL_0.01, mean((lm.pred - test$y)^2))
+}
+
+#sigma = 0.1
+b = 1000
+error_lasso_0.1 <-c()
+error_OAL_0.1 <- c()
+for (i in 1:b){
+  Beta <- c(1, 1, 1, 1, 1, 0, 0, 0, 0, 0)
+  X <- matrix(rnorm(100*10), ncol = 10, nrow =100)
+  epsilon <- rnorm(100, 0, .1)
+  Y_train <- X%*%Beta+epsilon
+  Y_train <- as.vector(Y_train)
+  data <- matrix(c(Y_train,X), ncol = 11, nrow = 100)
+  colnames(data)<- c('y','x1', 'x2', 'x3','x4', 'x5', 'x6', 'x7', 'x8', 'x9', 'x10')
+  train <- as.data.frame(data)
+  x <- model.matrix(y ~., train)[,-1]
+  x_test <- model.matrix(y~., test)[,-1]
+  y <- train$y
+  lasso.mod <- glmnet(x, y, alpha = 1, lambda = grid)
+  cv.out <- cv.glmnet(x, y, alpha = 1)
+  bestlam <- cv.out$lambda.min
+  lasso.pred <- predict(lasso.mod, s = bestlam, newx = x_test)
+  error_lasso_0.1 <- c(error_lasso_0.1, mean((lasso.pred - test$y)^2))
+  out <-  glmnet( x, y, alpha = 1, lambda = grid)
+  lasso.coef <- predict(out, type = 'coefficients', s = bestlam)[1:11,]
+  index <- c()
+  for (i in 2:11){
+    if (as.numeric(lasso.coef[i] != 0)){
+      index <- c(index, i)
+    }
+  }
+  train_small <- train[c(1, index)]
+  test_small <- test[c(1, index)]
+  lm.fit <- lm(y~., train_small)
+  lm.pred  <- predict(lm.fit, test_small)
+  error_OAL_0.1 <- c(error_OAL_0.1, mean((lm.pred - test$y)^2))
+}
+
+#sigma = 1
+b = 1000
+error_lasso_1 <-c()
+error_OAL_1 <- c()
+for (i in 1:b){
+  Beta <- c(1, 1, 1, 1, 1, 0, 0, 0, 0, 0)
+  X <- matrix(rnorm(100*10), ncol = 10, nrow =100)
+  epsilon <- rnorm(100, 0, 1)
+  Y_train <- X%*%Beta+epsilon
+  Y_train <- as.vector(Y_train)
+  data <- matrix(c(Y_train,X), ncol = 11, nrow = 100)
+  colnames(data)<- c('y','x1', 'x2', 'x3','x4', 'x5', 'x6', 'x7', 'x8', 'x9', 'x10')
+  train <- as.data.frame(data)
+  x <- model.matrix(y ~., train)[,-1]
+  x_test <- model.matrix(y~., test)[,-1]
+  y <- train$y
+  lasso.mod <- glmnet(x, y, alpha = 1, lambda = grid)
+  cv.out <- cv.glmnet(x, y, alpha = 1)
+  bestlam <- cv.out$lambda.min
+  lasso.pred <- predict(lasso.mod, s = bestlam, newx = x_test)
+  error_lasso_1 <- c(error_lasso_1, mean((lasso.pred - test$y)^2))
+  out <-  glmnet( x, y, alpha = 1, lambda = grid)
+  lasso.coef <- predict(out, type = 'coefficients', s = bestlam)[1:11,]
+  index <- c()
+  for (i in 2:11){
+    if (as.numeric(lasso.coef[i] != 0)){
+      index <- c(index, i)
+    }
+  }
+  train_small <- train[c(1, index)]
+  test_small <- test[c(1, index)]
+  lm.fit <- lm(y~., train_small)
+  lm.pred  <- predict(lm.fit, test_small)
+  error_OAL_1 <- c(error_OAL_1, mean((lm.pred - test$y)^2))
+}
+
+#sigma = 0.25
+b = 1000
+error_lasso_0.25 <-c()
+error_OAL_0.25 <- c()
+for (i in 1:b){
+  Beta <- c(1, 1, 1, 1, 1, 0, 0, 0, 0, 0)
+  X <- matrix(rnorm(100*10), ncol = 10, nrow =100)
+  epsilon <- rnorm(100, 0, 0.25)
+  Y_train <- X%*%Beta+epsilon
+  Y_train <- as.vector(Y_train)
+  data <- matrix(c(Y_train,X), ncol = 11, nrow = 100)
+  colnames(data)<- c('y','x1', 'x2', 'x3','x4', 'x5', 'x6', 'x7', 'x8', 'x9', 'x10')
+  train <- as.data.frame(data)
+  x <- model.matrix(y ~., train)[,-1]
+  x_test <- model.matrix(y~., test)[,-1]
+  y <- train$y
+  lasso.mod <- glmnet(x, y, alpha = 1, lambda = grid)
+  cv.out <- cv.glmnet(x, y, alpha = 1)
+  bestlam <- cv.out$lambda.min
+  lasso.pred <- predict(lasso.mod, s = bestlam, newx = x_test)
+  error_lasso_0.25 <- c(error_lasso_0.25, mean((lasso.pred - test$y)^2))
+  out <-  glmnet( x, y, alpha = 1, lambda = grid)
+  lasso.coef <- predict(out, type = 'coefficients', s = bestlam)[1:11,]
+  index <- c()
+  for (i in 2:11){
+    if (as.numeric(lasso.coef[i] != 0)){
+      index <- c(index, i)
+    }
+  }
+  train_small <- train[c(1, index)]
+  test_small <- test[c(1, index)]
+  lm.fit <- lm(y~., train_small)
+  lm.pred  <- predict(lm.fit, test_small)
+  error_OAL_0.25 <- c(error_OAL_0.25, mean((lm.pred - test$y)^2))
+}
+
+#sigma = 3
+b = 1000
+error_lasso_3 <-c()
+error_OAL_3 <- c()
+for (i in 1:b){
+  Beta <- c(1, 1, 1, 1, 1, 0, 0, 0, 0, 0)
+  X <- matrix(rnorm(100*10), ncol = 10, nrow =100)
+  epsilon <- rnorm(100, 0, 3)
+  Y_train <- X%*%Beta+epsilon
+  Y_train <- as.vector(Y_train)
+  data <- matrix(c(Y_train,X), ncol = 11, nrow = 100)
+  colnames(data)<- c('y','x1', 'x2', 'x3','x4', 'x5', 'x6', 'x7', 'x8', 'x9', 'x10')
+  train <- as.data.frame(data)
+  x <- model.matrix(y ~., train)[,-1]
+  x_test <- model.matrix(y~., test)[,-1]
+  y <- train$y
+  lasso.mod <- glmnet(x, y, alpha = 1, lambda = grid)
+  cv.out <- cv.glmnet(x, y, alpha = 1)
+  bestlam <- cv.out$lambda.min
+  lasso.pred <- predict(lasso.mod, s = bestlam, newx = x_test)
+  error_lasso_3 <- c(error_lasso_3, mean((lasso.pred - test$y)^2))
+  out <-  glmnet( x, y, alpha = 1, lambda = grid)
+  lasso.coef <- predict(out, type = 'coefficients', s = bestlam)[1:11,]
+  index <- c()
+  for (i in 2:11){
+    if (as.numeric(lasso.coef[i] != 0)){
+      index <- c(index, i)
+    }
+  }
+  train_small <- train[c(1, index)]
+  test_small <- test[c(1, index)]
+  lm.fit <- lm(y~., train_small)
+  lm.pred  <- predict(lm.fit, test_small)
+  error_OAL_3 <- c(error_OAL_3, mean((lm.pred - test$y)^2))
+}
+
+#sigma = 5
+b = 1000
+error_lasso_5 <-c()
+error_OAL_5 <- c()
+for (i in 1:b){
+  Beta <- c(1, 1, 1, 1, 1, 0, 0, 0, 0, 0)
+  X <- matrix(rnorm(100*10), ncol = 10, nrow =100)
+  epsilon <- rnorm(100, 0, 5)
+  Y_train <- X%*%Beta+epsilon
+  Y_train <- as.vector(Y_train)
+  data <- matrix(c(Y_train,X), ncol = 11, nrow = 100)
+  colnames(data)<- c('y','x1', 'x2', 'x3','x4', 'x5', 'x6', 'x7', 'x8', 'x9', 'x10')
+  train <- as.data.frame(data)
+  x <- model.matrix(y ~., train)[,-1]
+  x_test <- model.matrix(y~., test)[,-1]
+  y <- train$y
+  lasso.mod <- glmnet(x, y, alpha = 1, lambda = grid)
+  cv.out <- cv.glmnet(x, y, alpha = 1)
+  bestlam <- cv.out$lambda.min
+  lasso.pred <- predict(lasso.mod, s = bestlam, newx = x_test)
+  error_lasso_5 <- c(error_lasso_5, mean((lasso.pred - test$y)^2))
+  out <-  glmnet( x, y, alpha = 1, lambda = grid)
+  lasso.coef <- predict(out, type = 'coefficients', s = bestlam)[1:11,]
+  index <- c()
+  for (i in 2:11){
+    if (as.numeric(lasso.coef[i] != 0)){
+      index <- c(index, i)
+    }
+  }
+  train_small <- train[c(1, index)]
+  test_small <- test[c(1, index)]
+  lm.fit <- lm(y~., train_small)
+  lm.pred  <- predict(lm.fit, test_small)
+  error_OAL_5 <- c(error_OAL_5, mean((lm.pred - test$y)^2))
+}
+
+
+
+sigma = c(0.01, 0.1, 0.25, 0.5, 1, 3, 5)
+f.error_lasso = c(mean(unlist(error_lasso_0.01)), mean(unlist(error_lasso_0.1)), mean(unlist(error_lasso_0.25)), mean(unlist(error_lasso_0.5)), mean(unlist(error_lasso_1)), mean(unlist(error_lasso_3)), 
+                  mean(unlist(error_lasso_5)))
+f.error_ols = c(mean(unlist(error_OAL_0.01)), mean(unlist(error_OAL_0.1)), mean(unlist(error_OAL_0.25)), mean(unlist(error_OAL_0.5)), mean(unlist(error_OAL_1)), mean(unlist(error_OAL_3)), mean(unlist(error_OAL_5)))
+df_plot = data.frame(sigma, f.error_lasso, f.error_ols)
+df_plot
+
+#g - only small amount of difference between the error of lasso and ols meaning less degrees of freedom and less noise 
+```
+

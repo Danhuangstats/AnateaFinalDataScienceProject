@@ -1,0 +1,506 @@
+---
+title: "Final Project"
+author: "Anatea Einhorn (ace29@pitt.edu)"
+date: "04/19/2020"
+output:
+  pdf_document: 
+    df_print: paged
+---
+
+```{r, warning = FALSE, message = FALSE, include = FALSE}
+# This chunk is reserved for loading packages.
+library(tree)
+library(randomForest)
+library(BART)
+library(gbm)
+library(survival)
+library(lattice)
+library(splines)
+library(parallel)
+library(ggthemes)
+library(ggplot2)
+library(psych)
+library(factoextra)
+library(gridExtra)
+library(tidyverse)
+library(glmnet)
+library(dplyr)
+library(magrittr)
+library(caret)
+library(tidyquant)
+library(gam)
+library(devtools)
+library(ggpubr)
+library(leaps)
+```
+
+```{r Setting Seed}
+# Setting seed variable
+set.seed(100)
+```
+
+
+```{r Reading in Data}
+# Importing data
+original.train <- read.csv("/Users/AnateaEinhorn/Desktop/PITT 21:22/STAT LEARNING & DATA SCIENCE/Final Project/train.csv")
+original.test <- read.csv("/Users/AnateaEinhorn/Desktop/PITT 21:22/STAT LEARNING & DATA SCIENCE/Final Project/test.csv")
+```
+
+```{r Examining Data}
+# Examining training dataset
+original.train %>% 
+  head
+
+# Examining testing dataset
+original.test %>% 
+  head
+```
+
+**Introduction / EDA**
+
+This report aims to fit a predictive model to the City of Ourra's bikesharing
+system, Drpia -- allowing us to model and predict rental bike count (ie demand)
+for the system. Our analysis relies upon a training dataset and a testing 
+dataset. The goal of the analysis is to construct a reliable and 
+statistically-defensible model upon which we can predict demand for Drpia for 
+testing dataset. The problem specifically is that we do not have demand 
+observations for the test dataset.
+
+Given the purpose of this analysis, our dataset consists of our key outcome
+variable, 'Count' which is the number of rides within any given hour of any
+given day, and our predictor variables consist primarily of seasonal, time and 
+weather-related variables, which are `Humidity`, `Temperature`, `Wind`, 
+`Visibility`, `Dew`, `Solar`, `Rainfall`, `Snowfall`, `Seasons`, `Holiday`,
+and `Functioning`. We will use some combination of these predictor variables
+to construct several models, from which we will conduct comparative diagnostics
+to determine the most appropriate model upon which to base our final
+prediction-set. We will now conduct high-level exploratory data analysis to
+inform our models. We also removed instances of NA from our data. Lastly,
+in the interest of accurately determining demand for the service, it makes
+intuitive sense to only focus on instances in which the service is in use.
+Therefore, we have elected to remove observations in which `Functioning` is 
+FALSE.
+
+
+```{r Cleaning Data}
+
+# Date to Days of Week 
+#original.train$Date <- as.Date(original.train$Date, format = "%d/%m/%Y")
+#original.train$Weekday <- weekdays(original.train$Date)
+
+#original.train$Weekend = chron::is.weekend(original.train$Date)
+#summary(original.train$Weekend)
+
+# Mutating Training Dataset
+original.train <- original.train %>% 
+  select(1:13) %>%
+  mutate(Date = as.Date(Date, format = "%d/%m/%Y"),
+         Holiday = as.factor(Holiday),
+         Seasons = as.factor(Seasons)) 
+
+```
+
+```{r Summary}
+# Summary Statistics
+original.train %>% summary
+
+print(original.train)
+```
+
+```{r Demand, include=TRUE}
+# Summary EDA Moving Average
+ggplot(original.train, aes(x = Hour, y = Count)) +
+  geom_ma(ma_fun = SMA, n = 200, lty = "solid")
+
+# Distribution of Demand
+ggplot(original.train, aes(x = Count)) +
+  geom_density(fill = "purple")
+
+# Distribution of Demand Based on Season
+ggplot(original.train, aes(x = Count)) +
+  geom_density(aes(fill = Seasons)) +
+  facet_wrap(~Seasons)
+```
+
+
+```{r Other Variable Distributions, include = TRUE}
+# Temperature
+Temperature <- ggplot(original.train, aes(x = Temperature)) +
+  geom_density(fill = "red")
+
+# Humidity
+Humidity <- ggplot(original.train, aes(x = Humidity)) +
+  geom_density(fill = "darkblue")
+
+# Wind
+Wind <- ggplot(original.train, aes(x = Wind)) +
+  geom_density(fill = "lightblue")
+
+# Visibility
+Visibility <- ggplot(original.train, aes(x = Visibility)) +
+  geom_density(fill = "black")
+
+# Dew
+Dew <- ggplot(original.train, aes(x = Dew)) +
+  geom_density(fill = "darkgreen")
+
+# Solar
+Solar <- ggplot(original.train, aes(x = Solar)) +
+  geom_density(fill = "yellow")
+
+# Rainfall
+Rainfall <- ggplot(original.train, aes(x = Rainfall)) +
+  geom_density(fill = "blue")
+
+# Snowfall
+Snowfall <- ggplot(original.train, aes(x = Snowfall)) +
+  geom_density(fill = "white")
+
+ggarrange(Temperature, Humidity, Wind, Visibility, Dew, Solar, 
+          Rainfall, Snowfall, labels = c("Temperature", "Humidity", "Wind", 
+                                         "Visibility", "Dew", "Solar",
+                                         "Rainfall", "Snowfall"),
+          ncol = 2, nrow = 4)
+```
+
+- Less demand, ie more heavily right skewed and lower centered average in 
+Winter -- roughly similar demand profiles in Spring, Summer, and Autumn
+- `Temperature` is approximately normally distributed
+- `Humidity` is approximately normally distributed
+- `Wind` is roughly normally distributed with a slight right skew
+- `Visibility` is left skewed
+- `Dew` is approximately normally distributed and is semi multi-modal
+- `Solar` is heavily right skewed
+- `Rainfall` is heavily heavily right skewed
+- `Snowfall` is heavily heavily right skewed
+
+In general, the univariate distributions of the variables is roughly conducive
+to modeling, although we may want to consider log transformations to normalize
+certain variables that are heavily skewed.
+
+**Methods Overview / Details**
+
+- Linear --> we are going to fit a multivariate linear model. We have
+also included interaction terms for weather covariates that relate to the season
+in which the observation occured, since the Season variable likely has some
+effect on the weather-related covariates. Consider implementing log 
+transformation for skewed variables, but must remove observations with 0 in the 
+log transformations.
+
+- Lasso --> 
+
+
+```{r}
+#split
+```
+
+
+```{r Fitting Linear Model}
+# Fitting a linear model, with interaction terms
+model.lin <- lm(Count ~ Temperature + Humidity + Wind + Visibility +
+                  Solar + Rainfall + Snowfall + Seasons + Holiday + Dew +
+                  Seasons:Snowfall + Seasons:Humidity + Seasons:Temperature +
+                  Seasons:Humidity, data = original.train)
+
+# Summary of Linear Model
+summary(model.lin)
+```
+
+- Preparing for Lasso and Ridge models
+
+```{r Lasso & Ridge Prep}
+# Train and Test Matrices
+train.mat <- model.matrix(Count ~ ., data = original.train)
+
+# Creating lambda testing grid
+grid <- 10 ^ seq(4, -2, length = 100)
+```
+
+- Lasso
+
+```{r Lasso Model}
+# Fitting a Lasso Model and determining best lambda
+model.lasso <- cv.glmnet(train.mat, as.matrix(original.train[, "Count"]), alpha = 1,
+                         nlambda = 100, thresh = 1e-12)
+
+# Assigning best lambda to variable
+lambda.best.lasso <- model.lasso$lambda.min
+
+# Printing out best lambda variable
+lambda.best.lasso
+```
+
+The above code calculates the appropriate lasso regression lambda.
+
+- Ridge Regression
+
+```{r Ridge Regression Model, warning = FALSE, message = FALSE}
+# fitting a ridge model and determining appropriate lambda
+model.ridge <- cv.glmnet(train.mat, as.matrix(original.train[, "Count"]), alpha = 1, 
+                       lambda = grid, thresh = 1e-12)
+
+# Assigning best lambda to variable
+lambda.best.ridge <- model.ridge$lambda.min
+
+# Printing out best lambda variable
+lambda.best.ridge
+```
+
+The above code calculates the appropriate ridge regression lambda.
+
+- GAM
+
+NOTE: Not positive how to select what df value here should be.
+
+```{r GAM}
+# Fitting the generalized additive model using splines
+model.gam <- gam(Count ~ s(Temperature, 4) + s(Humidity, 4) + s(Wind, 4) + 
+                   s(Visibility, 4) + s(Solar, 4) + s(Rainfall, 4) + 
+                   s(Snowfall, 4) + Seasons + Holiday + s(Dew, 4) + 
+                   Seasons:Snowfall + Seasons:Humidity + Seasons:Temperature +
+                   Seasons:Humidity, data = original.train)
+
+# Printing out summary of fitting generalized additive model
+summary(model.gam)
+```
+
+The above code creates our generalized additive model using smooth splines.
+
+- Random Forest
+
+```{r Random Forest Model}
+# Creating model
+model.rf <- randomForest(Count ~ ., original.train, mtry = 10, importance = TRUE)
+
+# Printing out summary of model
+summary(model.rf)
+```
+
+The above code constructs our random forest model.
+
+**Summary of Results**
+
+- Model Selection
+
+So we now have the following models from which to select our final model:
+- `Linear Model`
+- `Lasso Model`
+- `Ridge Model`
+- `GAM Model`
+- `Random Forest Model`
+
+We will conduct CV and other fit-assessment analyses to determine which
+model we will use as our final model to construct demand predictions for our
+`test_dat` dataset, which does not include the `Count` variable.
+
+```{r}
+fwd.fit <- regsubsets(Count ~ ., data = original.train, method = "forward", nvmax = )
+fwd.summary <- (summary(fwd.fit))
+
+
+#how many predictors for best model
+which.min(fwd.summary$bic)
+
+coef(fwd.fit, id=8)
+
+bwd.fit <- regsubsets(Count ~ ., data = original.train, method = "backward")
+bwd.summary <- (summary(bwd.fit))
+
+#how many predictors for best model
+which.min(bwd.summary$bic)
+
+coef(bwd.fit, id=7)
+```
+
+
+```{r}
+# Creating our new training and testing sets
+
+set.seed(100)
+new.train <- original.train %>% sample_frac(size = .8)     # 80% for training
+new.test <- original.train %>% setdiff(new.train)          # 20% for testing 
+```
+
+
+```{r}
+# Fitting our new models - Linear
+lin.fit <- lm(Count ~ Temperature + Humidity + Wind + Visibility +
+                  Solar + Rainfall + Snowfall + Seasons + Holiday + Dew +
+                  Seasons:Snowfall + Seasons:Humidity + Seasons:Temperature +
+                  Seasons:Humidity, data = new.train)
+
+# Predicting 
+pred.lin.fit <- predict.lm(lin.fit, data = new.test)
+
+# Calculating Test MSE based on Train MSE 
+lin.test.mse <- round(mean((new.test[['Count']] - pred.lin.fit)^2), 4)
+lin.test.mse
+
+# might need this 
+# mean(mse.lin.pred != new.train$Count)
+```
+
+
+
+
+```{r, warning = FALSE, message = FALSE}
+
+test_mses <- training_mses <- list()
+for (i in 1:10) {
+    train_mod <- lm(price ~ poly(carat, degree = i), data = dat$training)
+    
+    y_hat_training <- predict(train_mod)
+    training_mses[[i]] <- mean((dat$training$price - y_hat_training)^2)
+    
+    y_hat_test <- predict(train_mod, newdata = dat$test)
+    test_mses[[i]] <- mean((dat$test$price - y_hat_test)^2)
+}
+
+```
+
+
+```{r Lasso & Ridge Prep}
+# Train and Test Matrices
+train.mat <- model.matrix(Count ~ ., data = original.train)
+
+# Creating lambda testing grid
+grid <- 10 ^ seq(4, -2, length = 100)
+```
+
+- Lasso
+
+```{r Lasso Model}
+# Fitting a Lasso Model and determining best lambda
+model.lasso <- cv.glmnet(train.mat, as.matrix(original.train[, "Count"]), alpha = 1,
+                         nlambda = 100, thresh = 1e-12)
+
+# Assigning best lambda to variable
+lambda.best.lasso <- model.lasso$lambda.min
+
+# Printing out best lambda variable
+lambda.best.lasso
+```
+
+```{r, warning = FALSE, message = FALSE}
+set.seed(1)
+
+
+# Preparing our cross validation for lasso model 
+#mse.lasso <- c(NA, length = nrow(train_dat))
+
+# Preparing for Lasso
+train.mat <- model.matrix(Count ~ ., data = new.train)
+test.mat <- model.matrix(Count ~ ., data = new.test)
+
+# Creating lambda testing grid
+grid <- 10 ^ seq(4, -2, length = 100)
+
+# Fitting our new models - Lasso
+lasso.fit <- cv.glmnet(train.mat, as.matrix(new.train[, "Count"]), alpha = 1,
+                         nlambda = 100, thresh = 1e-12)
+cv.lambda.best.lasso <- lasso.fit$lambda.min
+
+
+# Calculating our MSEs - Lasso
+#mse.lasso.pred <- predict(cv.lasso, newx = new.test, s = cv.lambda.best.lasso)
+#mse.lasso <- mean((test.dat$Count - mse.lasso.pred)^2)
+#mse.lasso
+
+# Predicting 
+pred.lasso.fit <- predict.glm(lasso.fit, newx = new.test, s = cv.lambda.best.lasso)
+
+# Calculating Test MSE based on Train MSE 
+lasso.mse <- round(mean((new.test$Count - pred.lasso.fit)^2), 4)
+lasso.mse
+```
+
+
+```{r, warning = FALSE, message = FALSE}
+set.seed(1)
+
+# Preparing our cross validation for ridge model 
+#mse.ridge <- c(NA, length = nrow(train_dat))
+
+# Preparing for Ridge 
+train.mat <- model.matrix(Count ~ ., data = new.train)
+test.mat <- model.matrix(Count ~ ., data = new.test)
+
+grid = 10 ^ seq(4, -2, length = 100)
+# Fitting our new models - Ridge
+cv.ridge <- cv.glmnet(train.mat, as.matrix(new.train[, "Count"]), alpha = 0, 
+                       lambda = grid, thresh = 1e-12)
+cv.lambda.best.ridge <- cv.ridge$lambda.min
+
+# Calculting our MSEs - Ridge
+mse.ridge.pred <- predict(cv.ridge, newx = new.test, s = cv.lambda.best.ridge)
+mse.ridge <- mean((new.test$Count - mse.ridge.pred)^2)
+mse.ridge
+```
+
+
+```{r, warning = FALSE, message = FALSE}
+set.seed(1)
+
+# Preparing our cross validation for GAM model 
+#mse.gam <- c(NA, length = nrow(train_dat))
+
+# Fitting our new models - GAM
+cv.gam <- gam(Count ~ s(Temperature, 4) + s(Humidity, 4) + s(Wind, 4) + 
+                   s(Visibility, 4) + s(Solar, 4) + s(Rainfall, 4) + 
+                   s(Snowfall, 4) + Seasons + Holiday + s(Dew, 4) + 
+                   Seasons:Snowfall + Seasons:Humidity + Seasons:Temperature +
+                   Seasons:Humidity, data = new.train)
+
+# Calculating our MSEs - GAM
+mse.gam.pred <- predict.Gam(cv.gam, newdata = new.test)
+mse.gam <- mean((new.test$Count - mse.gam.pred)^2)
+mse.gam
+```
+
+```{r, warning = FALSE, message = FALSE}
+# Preparing our cross validation for RF model 
+#mse.rf <- c(NA, length = nrow(train_dat))
+
+# Fitting our new models - RF
+cv.rf <- randomForest(Count ~ ., new.train, mtry = 10, importance = TRUE)
+cv.rf
+
+# Calculating our MSEs - RF
+mse.rf.pred <- predict(cv.rf, newdata = new.test)
+mse.rf.pred
+mse.rf <- mean((new.test$Count - mse.rf.pred)^2)
+mse.rf
+```
+
+
+```{r}
+
+  
+
+
+```
+
+At first tried running a for loop with all models to determine MSE. However, 
+Random Forest took too much time, so transitioned to k-fold cross validation
+and then determine lowest MSE and then continue with lowest MSE or possibly
+the second-lowest MSE for the rest of the model and to predict the values of 
+`Count` for the `test_dat` dataset.
+
+After running CV for all models, we find that RandomForest has the lowest MSE. 
+Now we fit the test data into the RF model 
+
+```{r, warning = FALSE, message = FALSE}
+# Fitting new RF Model 
+test.cv.rf <- randomForest(Count ~ ., new.train, mtry = 10, importance = TRUE)
+test.cv.rf
+
+test.rf.pred <- predict(test.cv.rf, newdata = original.test)
+##### ???!?
+
+
+```
+
+```{r}
+
+```
+

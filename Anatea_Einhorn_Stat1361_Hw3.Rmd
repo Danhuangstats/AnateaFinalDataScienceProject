@@ -1,0 +1,396 @@
+---
+title: "Stat 1361 Homework 3"
+author: "Anatea Einhorn (ace29@pitt.edu)"
+date: "02/18/2022"
+output:
+  pdf_document: 
+    df_print: paged
+---
+
+```{r, warning = FALSE, message=FALSE}
+# This chunk is reserved for loading packages.
+
+library(MASS)
+library(tidyverse)
+library(ggplot2)
+library(ISLR2)
+library(class)
+library(dplyr)
+# library(naivebayes)
+library(e1071)
+library(psych)
+library(cubature)
+library(pracma)
+```
+
+# 2. (20 pts)
+
+# 2(a) ISLR Chapter 4 Conceptual Exercises 4
+
+Please refer to the textbook for details of this question.
+
+## 4.4.a
+
+-   If x is an element of \[.05, .95\] then our observations will be within the interval of \[x - .05, x + .05\] which will represent a length of .1 (this is representative of fraction of 10%).
+
+-   If x \< .05, then we use observations within the interval \[0, x + .05\] which would represent a fraction of (100x + 5)%
+
+-   Similarly, if x > .95, then the fraction of observations used would be (105 - 100x)%
+
+$$\int_.05^.95 10dx + \int_0^.05 (100x+5)dx + \int_.95^1 (105-100x)dx = 9 + .375 + .375 = 9.75$$
+
+-   **On average, the fraction of available observations used to make prediction will be 9.75% \~ 10% (or .1) - we would want approximation for this problem because X follows a uniform distribution so length of range will be equal to proportion as it is equal in each dimension.**
+
+```{r}
+f1 <- function(x) 10
+integrate(Vectorize(f1), lower = .05, upper = .95)$value
+
+f2 <- function(x) {(100*x)+5}
+integrate(Vectorize(f2), lower = 0, upper = .05)$value
+
+f3 <- function(x) {105-100*x}
+integrate(Vectorize(f3), lower = .95, upper = 1)$value
+
+### approximated 
+f <- function(x) 10
+integrate(Vectorize(f), lower = 0, upper = 1)$value
+```
+
+## 4.4.b
+
+-   If x1 and x2 are independent, then the fraction of available observations that we will use to make the prediction will be: 9.75% \* 9.75% (.1\*.1 = .01 --> 1%) which will yield **approximately 1%**
+
+## 4.4.c
+
+-   The fraction of available observations will be 1e-100 \~ 0
+
+```{r}
+x = .1^{100}
+x
+
+```
+
+## 4.4.d
+
+-   When p=100 the fraction of the available observations near the test will decrease exponentially by the number of predictors, so as p goes to infinity, the fraction approaches 0.
+
+## 4.4.e
+
+-   Volume of hypercube will be 10% of total volume so: volume = .1\^{1/p}
+
+```{r}
+p1 <- .1^{1/1}
+p1
+
+p2 <- .1^{1/2}
+p2
+
+p100 <- .1^{1/100}
+p100
+```
+
+# 2(b)
+
+-   We might want to derive the asymptotic null distribution of the test statistic because overall want to support the ultimate hypothesis. I think this would then account for data sparsity (which can lead to high variance or over fitting) as well as distance concentration because using something like KNN or clustering might not be relevant in higher dimension. With this in mind, we might also want to know the size of sample (n). As n increases it will be more likely that there will be increased observations near the test observation. Given this, if the sample is large enough a fraction of the data may still be able to include a sufficient amount of observations.
+
+# 2(c)
+
+-   Extrapolate (making a prediction without many observations, observations are predicting locations.)
+
+# 2(d)
+
+-   It may not necessarily be a bad thing, however we can collect a lot more data than we may be able to process. Additionally, using more data with no qualitative relevance may lead to misleading data overall. We want to have reliable data such that overall skew is minimized. More data might include omitted values or duplicates which we wouldn't want. More predictors can also lead to overfitting which wouldn't generalize well to different data.
+
+# 3 ISLR Chapter 4 Conceptual Exercises 5, 8, 12
+
+# 4.5 (10 pts)
+
+Please refer to the textbook for details of this question.
+
+## 4.5.a
+
+-   When Bayes decision boundary is linear we would expect the QDA to perform better on the training set as it has high flexibility and in turn may produce a closer fit, and these would most likely not appear in the test set.
+
+-   On the test set, we would expect LDA (less flexible) to perform better than the QDA as the QDA might overfit the linear aspect of the Bayes decision boundary.
+
+## 4.5.b
+
+-   If the Bayes decision boundary is non-linear then we would expect the QDA to perform better on both sets (training and test,) as it's more flexible (and therefore more approximate.)
+
+## 4.5.c
+
+-   QDA is usually more flexible and therefore has higher variance than LDA. So QDA would be a better fit if the training set were large, due to variance of classifier. (As sample increases, the prediction accuracy of QDA would improve since a larger sample would reduce variance.) If linear, LDA would perform better when n increases, as it would have a more accurate prediction than QDA. However if the boundary is non-linear, then again, QDA would be better, as to ensure this variance.
+
+## 4.5.d
+
+-   This would be false because if we only have a few sample points, the variance from a more flexible method (QDA) might lead to overfitting, which would result in an inferior test error. Flexibility is not the only thing we can use to determine a good model. Using LDA would give a better test error rate than QDA.
+
+# 4.8 (10 pts)
+
+Please refer to the textbook for details of this question.
+
+-   We would prefer to use logistic regression here as we are classifying new observations. Since we are using a K=1 classifier on the training data, just about any amount (within reason) would lead us to find that the training point itself is its own nearest neighbor. So its value for the target variable would therefore be used to predict itself and there would be no error in the model
+-   KNN: training = 0%, test = 36%, higher than test error rate
+
+# 4.12 (10 pts)
+
+Please refer to the textbook for details of this question.
+
+## 4.12.a
+
+$$(\hat\beta_0 + \hat\beta_1x)$$
+
+## 4.12.b
+
+$$(\hat\alpha_{orange_0} - \hat\alpha_{apple_0}) + (\hat\alpha_{orange_1} - \hat\alpha_{apple_1})$$
+
+## 4.12.c
+
+$$(\hat\alpha_{orange_0} - \hat\alpha_{apple_0})=2$$ $$(\hat\alpha_{orange_0}) = 2 + \hat\alpha_{apple_0}$$ $$(\hat\alpha_{orange_1} - \hat\alpha_{apple_1}) = -1$$
+
+$$(\hat\alpha_{orange_1}) = -1 + \hat\alpha_{apple_1}$$
+
+## 4.12.d
+
+$$(\hat\alpha_{orange_0} - \hat\alpha_{apple_0}) = \hat\beta_0$$ $$1.2 - 3 = \hat\beta_0 = -1.8$$ $$(\hat\alpha_{orange_1} - \hat\alpha_{apple_1}) = \hat\beta_1$$ $$-2 - .6 = \hat\beta_1 = -2.6$$
+
+## 4.12.e
+
+-   The predicted class labels from both models agree at all times. The fitted values (between pairs of classes and other model outputs) remain the same and therefore the models are equivalent.
+
+# 4. ISLR Chapter 4 Applied Exercise 14
+
+# 4.14 (10 pts)
+
+Please refer to the textbook for details of this question.
+
+## 4.14.a
+
+```{r}
+data("Auto")
+mpg01 <- rep(0, length(Auto$mpg))
+mpg01[Auto$mpg > median(Auto$mpg)] <- 1 
+Auto <- data.frame(Auto, mpg01)
+Auto$mpg01 <- as.factor(Auto$mpg01)
+# don't need 
+summary(Auto)
+
+
+```
+
+## 4.14.b
+
+```{r}
+pairs(Auto[, -9])
+
+#pairs(data.matrix(Auto_01))
+#cor(Auto_01[sapply(Auto_01, is.numeric)])
+
+```
+
+-   We can see an association between mpg01 and cylinders, weight, displacement, and horsepower so these would be the most useful in predicting mpg01.
+
+## 4.14.c
+
+```{r}
+set.seed(100)
+train <-sample(1:dim(Auto)[1], dim(Auto)[1]*.8, rep = FALSE)
+test <- -train
+training.data <- Auto[train, ]
+testing.data <- Auto[test, ]
+mpg01.test <- mpg01[test]
+
+```
+
+## 4.14.d
+
+```{r}
+lda.model <- lda(mpg01 ~ cylinders + weight + displacement + horsepower, 
+                 data = training.data)
+lda.model
+
+lda.pred <- predict(lda.model, testing.data)
+names(lda.pred)
+
+# computing confusion matrix
+pred.lda <- predict(lda.model, testing.data)
+table(pred.lda$class, mpg01.test)
+
+mean(pred.lda$class != mpg01.test)
+```
+
+-   We get a test error rate of 6.329%
+
+## 4.14.e
+
+```{r}
+qda.model = qda(mpg01 ~ cylinders + horsepower + weight + acceleration, 
+                data=training.data)
+qda.model
+
+# computing confusion matrix
+qda.class = predict(qda.model, testing.data)$class
+table(qda.class, testing.data$mpg01)
+
+# computing test error 
+mean(qda.class !=testing.data$mpg01)
+```
+
+-   We get a test error rate of 6.329%
+
+## 4.14.f
+
+```{r}
+glm.model <- glm(mpg01 ~ cylinders + weight + displacement + horsepower, 
+                 data = training.data, family = binomial)
+summary(glm.model)
+
+
+probs <- predict(glm.model, testing.data, type ="response")
+predict.glm <- rep(0, length(probs))
+predict.glm[probs > 0.5] <- 1 
+table(predict.glm, mpg01.test)
+
+mean(predict.glm != mpg01.test)
+```
+
+-   The test error here is 7.59%
+
+## 4.14.g
+
+```{r}
+
+nb.fit <- naiveBayes(mpg01 ~ cylinders + displacement + horsepower + weight, 
+                     data = training.data)
+nb.fit
+
+nb.pred <-predict(nb.fit, testing.data)
+mean(nb.pred != testing.data$mpg01)
+```
+
+## 4.14.h
+
+-   K=1: 0
+
+-   K=2: .0543
+
+-   K=3: .0479
+
+-   K=4: .0447
+
+-   K=5: .0575
+
+-   Given KNN, it would seem that K=1 would perform best, however I don't think it's possible to have this value as 0, and therefore K=4 would be the best(/second best) for this data.
+
+```{r}
+str(Auto)
+
+data = scale(Auto[, -c(9,10)])
+set.seed(1000)
+train <- sample(1:dim(Auto)[1], 392*.8, rep = FALSE)
+# this is sample(1:dim(Auto)[1], sim(Auto)[1]*.8, rep = FALSE)
+test <- train
+training.data = data[train, c("cylinders", "horsepower", "weight", "acceleration")]
+testing.data = data[test, c("cylinders", "horsepower", "weight", "acceleration")]
+
+train.mpg01 = Auto$mpg01[train]
+# since KNN uses training response variable on its own
+
+test.mpg01 = Auto$mpg01[test]
+# need testing separate
+
+#K = 1 
+set.seed(1000)
+knn.pred <- knn(training.data, testing.data, train.mpg01, k = 1)
+table(knn.pred, test.mpg01)
+mean(knn.pred != test.mpg01)
+
+#K = 2 
+set.seed(1000)
+knn.pred <- knn(training.data, testing.data, train.mpg01, k = 2)
+table(knn.pred, test.mpg01)
+mean(knn.pred != test.mpg01)
+
+#K = 3 
+set.seed(1000)
+knn.pred <- knn(training.data, testing.data, train.mpg01, k = 3)
+table(knn.pred, test.mpg01)
+mean(knn.pred != test.mpg01)
+
+#K = 4 
+set.seed(1000)
+knn.pred <- knn(training.data, testing.data, train.mpg01, k = 4)
+table(knn.pred, test.mpg01)
+mean(knn.pred != test.mpg01)
+
+#K = 5 
+set.seed(1000)
+knn.pred <- knn(training.data, testing.data, train.mpg01, k = 5)
+table(knn.pred, test.mpg01)
+mean(knn.pred != test.mpg01)
+```
+
+# 5 (20 pts)
+
+Please refer to *STAT 1361 Homework 3.pdf* for details of this question.
+
+## 5.a
+
+```{r}
+#example("UCBAdmissions")
+
+```
+
+-   Plot shows more males were accepted than females, which might imply there is bias toward male admissions. The difference between number of males admitted and the number of females admitted was significantly greater than the difference of number of males rejected and number of females rejected.
+
+```{r}
+male.accept <- (1198/(1198 + 1493))*100
+male.accept
+
+female.accept <- (557 / (557+1278))*100
+female.accept
+```
+
+-   Male acceptance rate = 44.518%
+
+-   Female acceptance rate = 30.354%
+
+## 5.b
+
+-   Plots show that department A and B have a high bias toward male applicant, where extreme majority of admitted students are male. But majority of applicants were male. Departments C and E lean slighly toward more female. And department D and F look pretty even between male and female admitted applicants, and have overall male and female applicants. So there doesn't appear to be any significant gender bias
+
+## 5.c
+
+-   Overall admission and rejection values show male favoring admission bias. However, when looking at the individual departments there appears to be little to no gender bias (disappears.)
+
+## 5.d
+
+-   Females applied more to departments with low admission rates and males applied more to departments with higher admission rates. Hence why in the overall admission data, male applicants look to be favored.
+
+## 5.e
+
+-   Female's are 61.035% less likely to get accepted than males.
+
+```{r}
+Adm <- as.integer(UCBAdmissions)[(1:(6*2))*2-1]
+Rej <- as.integer(UCBAdmissions)[(1:(6*2))*2]
+Dept <- gl(6,2,6*2,labels=c("A","B","C","D","E","F"))
+Sex <- gl(2,1,6*2,labels=c("Male","Female"))
+Ratio <- Adm/(Rej+Adm)
+berk <- data.frame(Adm,Rej,Sex,Dept,Ratio)
+
+head(berk)
+
+LogReg.gender <- glm(cbind(Adm,Rej)~Sex,data=berk,family=binomial("logit"))
+summary(LogReg.gender)
+```
+
+## 5.f
+
+-   The female coefficient increases to 9.987%, which tells us that when then within department B this decreases even more to 4.34%, but is much higher in departments C-F (highest for F.) Overall, when department was added to the model the coefficient for female became positive as well as smaller in magnitude, which becomes statistically insignificant. This highlights Simposon's Paradox which shows that a trend that appears in several group of data, disappears or reverses when the groups are combined. This is shown when the department variable is added to gender variable.
+
+```{r}
+LogReg.department <- glm(cbind(Adm,Rej)~Sex+Dept,data=berk,
+                         family=binomial("logit"))
+summary(LogReg.department)
+```

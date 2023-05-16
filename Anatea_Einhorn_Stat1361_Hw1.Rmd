@@ -1,0 +1,433 @@
+---
+title: "Stat 1361 Homework 1"
+author: "Anatea, Einhorn (ace29@pitt.edu)"
+date: "1/11/2022"
+output:
+  pdf_document:
+    df_print: paged
+  html_document:
+    df_print: paged
+  word_document: default
+header-includes: \usepackage{xcolor}
+---
+
+
+
+```{r, warning = FALSE, message=FALSE}
+# This chunk is reserved for loading packages.
+library(glmnet)
+```
+
+
+
+## 2. ISLR Chapter 2 Conceptual Exercises 1,2, 5
+
+### 2.1 (10 pts)
+
+For each of parts (a) through (d), indicate whether we would generally
+expect the performance of a flexible statistical learning method to be
+better or worse than an inflexible method. Justify your answer.
+
+a. The sample size n is extremely large, and the number of predictors
+p is small.
+
+**A flexible method would be better as it would be able to extract more information from the large sample size (n), due to more degrees of freedom. Additionally, the large sample size would reduce the risk of overfitting the model as there would be more than enough information about each of the predictors.**
+
+
+
+b. The number of predictors p is extremely large, and the number
+of observations n is small.
+
+**A flexible method would be worse as the the risk of overfitting would be extremely high as a result of a lower amount of observations, implying less dependence. We would not have enough information about the effect and variation of the parameters and therefore would need to collect more samples until they reached a larger amount than the amount of parameters. In this case, an inflexible method would be a better fit (since less observations). **
+
+
+c. The relationship between the predictors and response is highly
+non-linear.
+
+**A flexible method would be better as an inflexible method wouldn't be able to receive a non-linear relationship/predict very well, and thus, would prefer a flexible method with more degrees of freedom.**
+
+
+d. The variance of the error terms, i.e. $\sigma^2 = \text{Var}(\epsilon)$, is extremely
+high.
+
+**A flexible model would be worse as it would include the error terms which would increase variance and result in a poor fitting model - this would result in the flexible model trying to over compensate for all of the variance.**
+
+
+### 2.2 (10 pts)
+
+Explain whether each scenario is a classification or regression problem,
+and indicate whether we are most interested in inference or prediction.
+Finally, provide n and p.
+
+a. We collect a set of data on the top 500 firms in the US. For each
+firm we record profit, number of employees, industry and the
+CEO salary. We are interested in understanding which factors
+affect CEO salary.
+
+**This is a regression problem where salary of CEO = dependent variable and independent variable = profit, number of employees, and industry. Here, we would be more interested in inference. (n=500 and p=3)**
+
+
+
+b. We are considering launching a new product and wish to know
+whether it will be a *success* or a *failure*. We collect data on 20
+similar products that were previously launched. For each product
+we have recorded whether it was a success or failure, price
+charged for the product, marketing budget, competition price,
+and ten other variables.
+
+**This is a classification problem containing two classes: success and failure. As a result, we would be more interested in prediction. The number of observations = 20 and the variables are: price charged for product, marketing budget, competition price along with 10 'other' variables. (n=20 and p=13)**
+
+
+
+c. We are interested in predicting the % change in the USD/Euro
+exchange rate in relation to the weekly changes in the world
+stock markets. Hence we collect weekly data for all of 2012. For
+each week we record the % change in the USD/Euro, the %
+change in the US market, the % change in the British market,
+and the % change in the German market.
+
+
+**This is a regression problem with dependent variable = USD/Euro exchange and independent variables = % change in US market, % change in British market, and % change in German market. Here, we would be more interested in prediction. (n=52 and p=3)**
+
+
+
+### 2.5 (10 pts)
+
+What are the advantages and disadvantages of a very flexible (versus
+a less flexible) approach for regression or classification? Under what
+circumstances might a more flexible approach be preferred to a less
+flexible approach? When might a less flexible approach be preferred?
+
+
+**The advantages of a very flexible approach are: decreasing bias, and that it might give a better fit (in the case of non-linear models,) and better accomodate small changes to the model. The disadvantages of a very flexible approach are that we must estimate a larger amount of parameters, it overfits, and as a result increases variance. A more flexible approach would be preferred when interested in prediction of results, whereas a less flexible approach would be preferred when interested in inference of results.**
+
+
+## 3. (10 pts)
+
+ISLR Conceptual Exercise 2 asks you (among other things) to determine whether each
+scenario is a classification or regression problem. For each scenario, now suppose we
+wanted to do the opposite. That is, if it was a classification problem, suppose we wanted to
+instead treat it as a regression problem and vice versa. What would need to change about
+the response and the way it's measured? In other words, think about how the descriptions
+could be restated in order to change the type of problem (regression or classification) being
+discussed.
+
+
+**
+a) this problem was a regression and inference problem so in order to change it to a classification problem  we would want to set defined ranges for the salary of the CEO (perhaps: low/average/high) then we would be able to see how the variables: profit, number of employees, and industry impact the CEO's salary. 
+b) This problem was a classification and prediction problem so in order to change it to a regression problem we would look at something more tangible (such as profit) as opposed to success/failure. We would then be able to visualize how our  our variables (price charged for product, marketing budget, competition price along with 10 'other' variables) affect profit.                   c) This problem was a regression and prediction problem so in order to change it to a classification problem we would have to create categories for percent change in market to see how we would be able to predict that using USD/Euro Exchange rate. We might want to look at something such as inflation/deflation. 
+**
+
+
+
+## 4. ISLR Chapter 2 Applied Exercises 8, 9, 10
+
+### 2.8 (10 pts)
+
+Please refer to the textbook for details of this question.
+
+a. 
+
+```{r}
+# setwd("~/Desktop/PITT 21:22/STAT LEARNING & DATA SCIENCE/HW/\Homework 1\")
+# Load college.csv to read and save as 'college'
+college <- read.csv("College.csv")
+
+
+```
+
+
+b.
+
+```{r}
+# head(college)
+# head(college)
+# set row names to correspond with name of school 
+rownames <- college[,1]
+# remove original list of names of names of schools so that they only appear as row names
+college <- college[,-1]
+# View(college)
+
+```
+
+
+c. 
+    i. 
+    
+    ```{r}
+    college$Private <- factor(college$Private)
+ # summarize data
+     summary(college)
+    ```
+    
+    
+    ii. 
+    
+    ```{r}
+# college[.1] = as.numeric(factor(college[,1]))
+    # overview of scatterplots to show association between variables
+pairs(college[, 1:10])
+    ```
+    
+    iii. 
+    
+```{r}
+boxplot(college$Private, college$Outstate, xlab="Private", ylab="Out of State Tuition", main="Outstate Tuition Plot")
+    
+```
+    
+    
+    iv.
+    
+```{r}
+Elite <- rep("No", nrow(college))
+Elite[college$Top10perc > 50] <- "Yes"
+Elite <- as.factor(Elite)
+college <- data.frame(college, Elite)
+college$Elite <- Elite
+summary(college$Elite)
+# there are 78 Elites
+plot(college$Elite, college$Outstate, xlab="Elite", ylab="Out of State Tuition", main="Outstate Tuition Plot")
+```
+    
+   v.
+    
+```{r}
+par(mfrow=c(2,2))
+hist(college$Expend, main = "Histogram of Expenditure per Student", col=14, xlab="Expenditure/Student", ylab="Count")
+hist(college$Personal, main = "Histogram of Estimated Personal Spending", col=12, xlab="Personal Spending", ylab="Count")
+hist(college$Books, main = "Histogram of Estimated Book Costs", col=5, xlab="Book Costs", ylab="Count")
+hist(college$Room.Board, main = "Histogram of Room & Board Costs", col=2, xlab="Room & Board Costs", ylab="Count")
+```
+    
+    vi. 
+I wanted to look at the maximum graduation rate (118) as this seemed rather high to see which college in specific showed this.
+    ```{r}
+summary(college$Grad.Rate)
+
+# high.grad <- college[college$Grad.Rate==118,]
+# row.names[as.numeric(row.names(high.grad))]
+high.grad <- which.max(college$Grad.Rate)
+row.names(college)[high.grad]
+
+    ```
+ 
+    
+### 2.9 (10 pts)
+Please refer to the textbook for details of this question.
+
+a. 
+
+Quantitative: mpg, cylinders, displacement, horsepower, weight, acceleration, year
+Qualitative: name, origin
+```{r}
+auto <- read.csv("Auto.csv", na.strings = "?")
+auto <- na.omit(auto)
+
+summary(auto)
+```
+
+
+b. 
+
+```{r}
+range(auto$mpg)
+range(auto$cylinders)
+range(auto$displacement)
+range(auto$horsepower)
+range(auto$weight)
+range(auto$acceleration)
+range(auto$year)
+range(auto$origin)
+```
+
+c.
+
+```{r}
+sapply(auto[,-c(4,9)], mean)
+sapply(auto[,-c(4,9)], sd)
+```
+
+d.
+
+```{r}
+Nauto <- auto[-c(10:85), -c(4,9)]
+sapply(Nauto, range)
+sapply(Nauto, mean)
+sapply(Nauto, sd)
+```
+
+e.
+
+- displacement and weight have very strong linear relationship with eachother 
+- linear tendency in mpg decreasing as cylinders & weight increase
+- horsepower increases as weight increases
+- negative correlation between acceleration and displacement
+
+```{r}
+pairs(Nauto)
+
+plot(auto$mpg, auto$cylinders)
+plot(auto$mpg, auto$displacement)
+plot(auto$mpg, auto$horsepower)
+plot(auto$mpg, auto$weight)
+plot(auto$mpg, auto$acceleration)
+plot(auto$mpg, auto$year)
+plot(auto$mpg, auto$origin)
+
+
+```
+
+f.
+cylinders and horsepower could be used as predictors due to strong inverse relationship with mpg
+- at a certain number of cylinders the mpg increases
+- displacement and horsepower decreased when mpg increased
+- heavier weight correlated with lower mpg
+- acceleration more or less increased with mpg (~equal)
+- mpg increased over time perhaps implying higher efficiency
+
+
+
+```{r}
+
+```
+
+
+### 2.10 (20 pts)
+
+
+Please refer to the textbook for details of this question.
+
+a. 
+
+```{r}
+library(ISLR2)
+Boston
+?Boston
+dim(Boston)
+
+```
+There are 13 variables (columns) and 506 observations (rows) in this data set.
+
+b. 
+
+Strong positive correlation between: age and nox, age and indus, dis and zn 
+Strong negative correlation between: dis and nox, nox and zn, medv and lstat
+
+- we can see here that chas is a categorical variable. 
+- to better look at this might want correlation plot to showcase these better
+
+
+```{r}
+pairs(Boston)
+
+plot(Boston$zn, Boston$crim, main = "Crime v. Proportion of Residential Land", xlab = "Proportion of Residential Land", ylab = "Crime")
+plot(Boston$indus, Boston$crim, main = "Crime v. Non-Retail Biz Ac", xlab = "Proportion Non-Retail Biz", ylab = "Crime") 
+plot(Boston$chas, Boston$crim, main = "Crime v. River Dummy Var.", xlab = "Charles River Dummy", ylab = "Crime")
+plot(Boston$nox, Boston$crim, main = "Crime v. Nitrous Oxide []", xlab = "Nitrous Oxide Concentration", ylab = "Crime") 
+plot(Boston$rm, Boston$crim, main = "Crime v. Avg. # of Rooms", xlab = "Average # Rooms/Dwelling", ylab = "Crime") 
+plot(Boston$age, Boston$crim, main = "Crime v. Owner-Occupied Units", xlab = "Owner-Occupied Units (pre 1940)", ylab = "Crime") 
+plot(Boston$dis, Boston$crim, main = "Crime v. Mean Dist. to Employment", xlab = "Distance to Employment", ylab = "Crime") 
+plot(Boston$rad, Boston$crim, main = "Crime v. Accessibilty Index to Highways", xlab = "Accesibility to Highways", ylab = "Crime") 
+plot(Boston$tax, Boston$crim, main = "Crime v. Property-Tax Rate", xlab = "Tax Rate", ylab = "Crime") 
+plot(Boston$ptratio, Boston$crim, main = "Crime v. Pupil-Teacher Ratio", xlab = "Pupil-Teacher Ratio", ylab = "Crime") 
+plot(Boston$lstat, Boston$crim, main = "Crime v. % Lower Status of Population", xlab = "% Lower Status", ylab = "Crime") 
+plot(Boston$medv, Boston$crim, main = "Crime v. Med. Val. of Owner Homes", xlab = "Value of Homes", ylab = "Crime")
+
+```
+
+c.
+
+```{r}
+other <- data.frame(Boston$zn, Boston$indus, Boston$chas, Boston$nox, Boston$rm, Boston$age, Boston$dis, Boston$rad, Boston$tax, Boston$ptratio, Boston$lstat, Boston$medv)
+cor(Boston$crim, other)
+
+plot(Boston$crim)
+
+
+```
+- Looking at the correlation between crime and the various other variables from graphs above and in 10.b, we see that there is in fact association. 
+- Lower/Negative Correlation with Crime: zn (proportion of residential land zoned), chas (river dummy, bound to), rm (average number of rooms per dwelling), dis (distance to employment centers, and medv (median value of owner-occupied homes)
+- Low/Positive Correlation with Crime: ptration (pupil-teacher ratio per town)
+- Moderate/Positive Correlation with Crime: indus(non-retail business), nox (nitrogen oxides concentration), age (owner-occupied units built prior to 1940)
+- High/Positive Correlation with Crime: rad (index of accessibilty to highways), and tax(full property-tax rate per 10k$)
+
+
+d.
+
+```{r}
+summary(Boston$crim)
+summary(Boston$tax)
+summary(Boston$ptratio)
+
+boxplot(Boston$crim)
+boxplot(Boston$tax)
+boxplot(Boston$ptratio)
+
+
+```
+- Crime rates span from .00632 to 88.9762% showing a large range of possibilities dependent on variable impact
+Large tail of census tracts that have high crime (some above 80)
+
+- Tax rate per 10,000$ spans from 187 to 711 which implies tax increases by larger amounts depending on the property value
+large divide between census tracts with low and high tax rates 
+
+- Pupil-teacher spans from 12.6-22 which doesn't show all that much association and perhaps crime is less impacted by this than other variables
+
+
+e.
+
+```{r}
+nrow(subset(Boston, chas == 1))
+
+```
+35 out of 506 census tracts are bound to Charles River
+
+
+f.
+
+```{r}
+median(Boston$ptratio)
+```
+Median Pupil teacher ratio = 19.05 out of towns included in Boston data set 
+
+g.
+
+```{r}
+t(subset(Boston, medv == min(medv)))
+
+```
+399 and 406
+- both zn give lowest min value at 0
+- both indus (18) are closer to max values 
+- both chas show that not near river (0)
+- nox has same concentration
+- both age are at max range 
+- both dis are close to min
+- both rad are max 
+- both tax are same at max amount 
+- ptratio both are close to max
+- medv is minimum (selected value)
+
+
+h.
+
+```{r}
+nrow(Boston[Boston$rm > 7, ])
+nrow(Boston[Boston$rm > 8, ])
+
+```
+64 census tracts average more than 7 rooms per dwelling and 13 census tracts average more than 8 rooms per dwelling
+
+
+
+
+
+
+
+
+
+
+
+
+
